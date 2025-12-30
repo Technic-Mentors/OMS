@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import pool from "../database/db";
-import bcrypt from "bcrypt";
+import bcrypt from 'bcryptjs';
 
 export const getAllUsers = async (req: Request, res: Response): Promise<void> => {
   try {

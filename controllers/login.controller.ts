@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import pool from "../database/db";
 import jwt from "jsonwebtoken";
-import bcrypt from "bcrypt";
+import bcrypt from 'bcryptjs';
 
 const saltRounds = 10;
 
