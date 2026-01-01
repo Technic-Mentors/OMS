@@ -10,7 +10,7 @@ export const getSalaries = async (req: Request, res: Response) => {
 
     const [totalResult] = await pool.query(
       `SELECT COUNT(*) as total FROM configempsalaries c
-       JOIN employee_lifeline e ON c.employee_id = e.id
+       JOIN employee_lifeline e ON c.employee_id = e.employee_id
        WHERE e.employee_id LIKE ? AND c.status='ACTIVE'`,
       [`%${search}%`]
     );
