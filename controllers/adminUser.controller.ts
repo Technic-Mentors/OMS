@@ -2,6 +2,9 @@ import { Request, Response } from "express";
 import pool from "../database/db";
 import bcrypt from 'bcryptjs';
 
+const formattedDate = new Date().toLocaleDateString("sv-SE");
+
+
 export const getAllUsers = async (req: Request, res: Response): Promise<void> => {
   try {
     const [rows]: any = await pool.query("SELECT * FROM login");
@@ -60,7 +63,7 @@ export const addUser = async (req: Request, res: Response): Promise<void> => {
       INSERT INTO login (name, email, password, contact, cnic, address, date, role)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `;
-    const values = [name, email, hashedPassword, contact, cnic, address, date, role];
+    const values = [name, email, hashedPassword, contact, cnic, address, formattedDate, role];
 
     const [result]: any = await pool.query(query, values);
 
