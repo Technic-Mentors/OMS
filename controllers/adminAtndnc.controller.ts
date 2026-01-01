@@ -35,8 +35,8 @@ export const markAttendance = async (
 ): Promise<void> => {
   try {
     const userId = req.params.id;
-    const today = moment().format("YYYY-MM-DD");
-    const currentTime = moment().format("HH:mm:ss");
+    const today = moment.tz("Asia/Karachi").format("YYYY-MM-DD");
+    const currentTime = moment.tz("Asia/Karachi").format("HH:mm:ss");
 
     const [rows]: any = await pool.query(
       "SELECT * FROM attendance WHERE userId = ? AND date = ?",
@@ -48,7 +48,6 @@ export const markAttendance = async (
         "INSERT INTO attendance (userId, clockIn, date) VALUES (?, ?, ?)",
         [userId, currentTime, today]
       );
-
       res.json({ message: "Clock In successful" });
       return;
     }
@@ -56,15 +55,16 @@ export const markAttendance = async (
     const record = rows[0];
 
     if (record.clockOut) {
-      res
-        .status(400)
-        .json({ message: "Attendance is already completed today" });
+      res.status(400).json({ message: "Attendance already completed" });
       return;
     }
 
-    const clockIn = moment(record.clockIn, "HH:mm:ss");
-    const clockOut = moment(currentTime, "HH:mm:ss");
-    const diff = moment.utc(clockOut.diff(clockIn)).format("HH:mm:ss");
+    const clockIn = moment.tz(record.clockIn, "HH:mm:ss", "Asia/Karachi");
+    const clockOut = moment.tz(currentTime, "HH:mm:ss", "Asia/Karachi");
+
+    const diff = moment
+      .utc(clockOut.diff(clockIn))
+      .format("HH:mm:ss");
 
     await pool.query(
       "UPDATE attendance SET clockOut = ?, workingHours = ? WHERE id = ?",
@@ -77,3 +77,4 @@ export const markAttendance = async (
     res.status(500).json({ message: "Internal server error" });
   }
 };
+
