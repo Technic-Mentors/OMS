@@ -8,7 +8,6 @@ export const getSalaries = async (req: Request, res: Response) => {
     const limit = 10;
     const offset = (page - 1) * limit;
 
-    // Get total count of active salaries matching search
     const [totalResult] = await pool.query(
       `SELECT COUNT(*) as total 
        FROM configempsalaries c
