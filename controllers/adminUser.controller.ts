@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import pool from "../database/db";
 import bcrypt from 'bcryptjs';
 
-const formattedDate = new Date().toLocaleDateString("en-GB");
+const formattedDate = new Date().toLocaleDateString("sv-SE");
 
 
 export const getAllUsers = async (req: Request, res: Response): Promise<void> => {

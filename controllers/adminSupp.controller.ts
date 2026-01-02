@@ -12,7 +12,7 @@ export const addSupplier = async (
     if (!supplierName || !supplierEmail || !supplierContact || !supplierAddress)
       res.status(400).json({ message: "All fields are required" });
 
-    // Duplication check
+    
     const [existing]: any = await pool.query(
       "SELECT * FROM suppliers WHERE supplierName=? OR supplierEmail=? OR supplierContact=?",
       [supplierName, supplierEmail, supplierContact]
@@ -21,7 +21,6 @@ export const addSupplier = async (
     if (existing.length > 0)
       res.status(409).json({ message: "Supplier already exists" });
 
-    // Insert
     const query = `
       INSERT INTO suppliers (supplierName, supplierEmail, supplierContact, supplierAddress)
       VALUES (?, ?, ?, ?)
@@ -40,42 +39,6 @@ export const addSupplier = async (
   }
 };
 
-// export const updateSupplier = async (
-//   req: Request,
-//   res: Response
-// ): Promise<void> => {
-//   try {
-//     const {
-//       supplierId,
-//       supplierName,
-//       supplierEmail,
-//       supplierContact,
-//       supplierAddress,
-//     } = req.body;
-
-//     if (!supplierId)
-//       res.status(400).json({ message: "supplierId is required" });
-
-//     const query = `
-//       UPDATE suppliers
-//       SET supplierName=?, supplierEmail=?, supplierContact=?, supplierAddress=?
-//       WHERE supplierId=?
-//     `;
-
-//     await pool.query(query, [
-//       supplierName,
-//       supplierEmail,
-//       supplierContact,
-//       supplierAddress,
-//       supplierId,
-//     ]);
-
-//     res.status(200).json({ message: "Supplier updated successfully" });
-//   } catch (error) {
-//     console.log("UPDATE SUPPLIER ERROR:", error);
-//     res.status(500).json({ message: "Server error" });
-//   }
-// };
 
 export const updateSupplier = async (
   req: Request,
@@ -96,7 +59,6 @@ export const updateSupplier = async (
     if (!supplierName || !supplierEmail || !supplierContact || !supplierAddress)
       res.status(400).json({ message: "All fields are required" });
 
-    // Duplication check: exclude current supplier
     const [existing]: any = await pool.query(
       `
       SELECT * FROM suppliers
@@ -111,7 +73,6 @@ export const updateSupplier = async (
         message: "Another supplier with these details already exists",
       });
 
-    // Update
     const query = `
       UPDATE suppliers
       SET supplierName=?, supplierEmail=?, supplierContact=?, supplierAddress=?

@@ -20,8 +20,8 @@ router.get(
   getAllAttendances
 );
 router.get("/user/getMyAttendances", authenticateToken, getMyAttendances);
-router.post("/addAttendance/:userId", addAttendance);
-router.patch("/updateAttendance/:id", updateAttendance);
-router.patch("/deleteAttendance/:id", deleteAttendance);
+router.post("/admin/addAttendance/:userId", isAdmin, addAttendance);
+router.patch("/admin/updateAttendance/:id", isAdmin, updateAttendance);
+router.patch("/admin/deleteAttendance/:id", isAdmin,deleteAttendance);
 
 export default router;

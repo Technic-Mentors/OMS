@@ -21,39 +21,7 @@ export const getAllCustomers = async (req: Request, res: Response): Promise<void
   }
 };
 
-// export const addCustomer = async (req: Request, res: Response): Promise<void> => {
-//   try {
-//     const {
-//       customerName,
-//       customerAddress,
-//       customerContact,
-//       companyName,
-//       companyAddress,
-//     }: CustomerBody = req.body;
 
-//     if (!customerName) {
-//       res.status(400).json({ message: "Customer name is required" });
-//     }
-
-//     await pool.query(
-//       `INSERT INTO customers 
-//       (customerName, customerAddress, customerContact, companyName, companyAddress) 
-//       VALUES (?, ?, ?, ?, ?)`,
-//       [
-//         customerName,
-//         customerAddress,
-//         customerContact,
-//         companyName,
-//         companyAddress,
-//       ]
-//     );
-
-//     res.status(201).json({ message: "Customer added successfully" });
-//   } catch (error) {
-//     console.error(error);
-//     res.status(500).json({ message: "Failed to add customer" });
-//   }
-// };
 
 export const addCustomer = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -69,7 +37,6 @@ export const addCustomer = async (req: Request, res: Response): Promise<void> =>
       res.status(400).json({ message: "Name, address, and contact are required" });
     }
 
-    // Check for duplication (same name & contact)
     const [existingCustomer]: any = await pool.query(
       "SELECT * FROM customers WHERE customerName=? AND customerContact=? AND customerStatus='Y'",
       [customerName, customerContact]
