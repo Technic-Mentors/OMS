@@ -70,7 +70,8 @@ export const getEmployeePayments = async (req: Request, res: Response) => {
         withdraw_amount AS withdrawAmount,
         transaction_date AS date
        FROM employee_accounts
-       WHERE employee_id = ? AND withdraw_amount > 0
+       WHERE employee_id = ? 
+       AND COALESCE(withdraw_amount, 0) > 0
        ORDER BY transaction_date ASC`,
       [id]
     );
