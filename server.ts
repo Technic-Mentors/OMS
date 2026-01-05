@@ -32,6 +32,8 @@ import paymentRoutes from "./routes/payment.routes";
 import quotationRoutes from "./routes/quotation.routes";
 import calendarRoutes from "./routes/calendar.routes";
 import configsalRoutes from "./routes/configsal.routes";
+import empaccountRoutes from "./routes/empaccount.routes";
+
 
 
 import session from "express-session";
@@ -85,6 +87,8 @@ app.use("/api/admin", paymentRoutes);
 app.use("/api/admin", quotationRoutes);
 app.use("/api/admin", calendarRoutes);
 app.use("/api/admin", configsalRoutes);
+app.use("/api/admin", empaccountRoutes);
+
 
 
 app.get("/", (req: Request, res: Response) => {
