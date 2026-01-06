@@ -2,7 +2,6 @@ import { Request, Response } from "express";
 import pool from "../database/db";
 import { v4 as uuidv4 } from "uuid";
 
-// Helper: send 400 if missing required fields
 const validateFields = (res: Response, fields: { [key: string]: any }) => {
   for (const [key, value] of Object.entries(fields)) {
     if (value === undefined || value === null || value === "") {
@@ -14,7 +13,11 @@ const validateFields = (res: Response, fields: { [key: string]: any }) => {
 };
 
 export const addEmployeePayment = async (req: Request, res: Response) => {
+  console.log("API hit: addEmployeePayment");
+
   try {
+    console.log("Body:", req.body);
+
     const { employeeId, withdrawAmount, balance, paymentMethod, paymentDate } =
       req.body;
 
@@ -25,7 +28,8 @@ export const addEmployeePayment = async (req: Request, res: Response) => {
     const safeBalance = balance ?? 0;
     const safePaymentMethod = paymentMethod || "cash";
 
-    // Execute query with timeout wrapper
+    console.log("API HIT - BEFORE DB QUERY");
+
     await pool.query(
       `INSERT INTO employee_accounts
        (employee_id, invoice_no, transaction_date, withdraw_amount, refund_amount, balance, payment_method)
@@ -40,12 +44,18 @@ export const addEmployeePayment = async (req: Request, res: Response) => {
       ]
     );
 
+    console.log("API HIT - AFTER DB QUERY");
+
+    console.log("DB insert done");
+
     res.status(201).json({ message: "Payment withdraw added successfully" });
   } catch (error: unknown) {
     console.error("addEmployeePayment error:", error);
 
     const errorMessage =
       error instanceof Error ? error.message : "Unknown error";
+
+    console.error("Error:", error);
 
     res
       .status(500)
@@ -89,10 +99,13 @@ export const addEmployeeRefund = async (req: Request, res: Response) => {
   }
 };
 
-export const getEmployeePayments = async (req: Request, res: Response) => {
+export const getEmployeePayments = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
     const { id } = req.params;
-    if (!id) return res.status(400).json({ message: "Missing employee id" });
+    if (!id) res.status(400).json({ message: "Missing employee id" });
 
     const [rows] = await pool.query(
       `SELECT 
@@ -119,10 +132,13 @@ export const getEmployeePayments = async (req: Request, res: Response) => {
   }
 };
 
-export const getEmployeeRefunds = async (req: Request, res: Response) => {
+export const getEmployeeRefunds = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
     const { id } = req.params;
-    if (!id) return res.status(400).json({ message: "Missing employee id" });
+    if (!id) res.status(400).json({ message: "Missing employee id" });
 
     const [rows] = await pool.query(
       `SELECT 
