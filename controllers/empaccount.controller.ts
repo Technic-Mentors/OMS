@@ -13,11 +13,7 @@ const validateFields = (res: Response, fields: { [key: string]: any }) => {
 };
 
 export const addEmployeePayment = async (req: Request, res: Response) => {
-  console.log("API hit: addEmployeePayment");
-
   try {
-    console.log("Body:", req.body);
-
     const { employeeId, withdrawAmount, balance, paymentMethod, paymentDate } =
       req.body;
 
@@ -27,8 +23,6 @@ export const addEmployeePayment = async (req: Request, res: Response) => {
     const invoiceNo = `WIT-${uuidv4().slice(0, 8)}`;
     const safeBalance = balance ?? 0;
     const safePaymentMethod = paymentMethod || "cash";
-
-    console.log("API HIT - BEFORE DB QUERY");
 
     await pool.query(
       `INSERT INTO employee_accounts
@@ -44,18 +38,12 @@ export const addEmployeePayment = async (req: Request, res: Response) => {
       ]
     );
 
-    console.log("API HIT - AFTER DB QUERY");
-
-    console.log("DB insert done");
-
     res.status(201).json({ message: "Payment withdraw added successfully" });
   } catch (error: unknown) {
     console.error("addEmployeePayment error:", error);
 
     const errorMessage =
       error instanceof Error ? error.message : "Unknown error";
-
-    console.error("Error:", error);
 
     res
       .status(500)
