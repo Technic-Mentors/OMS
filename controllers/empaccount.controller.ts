@@ -87,7 +87,10 @@ export const addEmployeeRefund = async (req: Request, res: Response) => {
   }
 };
 
-export const getEmployeePayments = async (req: Request, res: Response):Promise <void>  => {
+export const getEmployeePayments = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
     const { id } = req.params;
     if (!id) res.status(400).json({ message: "Missing employee id" });
@@ -117,7 +120,10 @@ export const getEmployeePayments = async (req: Request, res: Response):Promise <
   }
 };
 
-export const getEmployeeRefunds = async (req: Request, res: Response):Promise <void> => {
+export const getEmployeeRefunds = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
     const { id } = req.params;
     if (!id) res.status(400).json({ message: "Missing employee id" });
