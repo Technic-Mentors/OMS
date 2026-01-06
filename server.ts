@@ -1,10 +1,10 @@
 import express, { Application, Request, Response } from "express";
-import path from "path";
-
 import bodyParser from "body-parser";
 import dotenv from "dotenv";
 import cors from "cors";
 import fileUpload from "express-fileupload";
+import session from "express-session";
+
 import loginRoutes from "./routes/login.routes";
 import adminUserRoutes from "./routes/adminUser.routes";
 import adminempllRoutes from "./routes/adminempll.routes";
@@ -34,31 +34,43 @@ import calendarRoutes from "./routes/calendar.routes";
 import configsalRoutes from "./routes/configsal.routes";
 import empaccountRoutes from "./routes/empaccount.routes";
 
-
-
-import session from "express-session";
-
 const app: Application = express();
 const PORT: number = 3001;
 
 dotenv.config();
 
+app.use(
+  cors({
+    origin: "http://localhost:5173",
+    credentials: true,
+  })
+);
+
+app.options(
+  "*",
+  cors({
+    origin: "http://localhost:5173",
+    credentials: true,
+  })
+);
+
 app.use(bodyParser.urlencoded({ extended: true }));
-app.use(cors());
 app.use(bodyParser.json());
 app.use(fileUpload());
 app.use("/uploads", express.static("uploads"));
 
 app.use(
   session({
-    secret: "your_secret_key",
+    secret: process.env.SESSION_SECRET || "your_secret_key",
     resave: false,
-    saveUninitialized: true,
-    cookie: { secure: false },
+    saveUninitialized: false,
+    cookie: {
+      secure: false,
+      httpOnly: true,
+      maxAge: 1000 * 60 * 60 * 24,
+    },
   })
 );
-
-app.use(express.static(path.join(__dirname, "dist")));
 
 app.use("/api", loginRoutes);
 app.use("/api/admin", adminUserRoutes);
@@ -88,8 +100,6 @@ app.use("/api/admin", quotationRoutes);
 app.use("/api/admin", calendarRoutes);
 app.use("/api/admin", configsalRoutes);
 app.use("/api/admin", empaccountRoutes);
-
-
 
 app.get("/", (req: Request, res: Response) => {
   res.send("Backend is up and running 🚀");
