@@ -1,11 +1,10 @@
 import express, { Application, Request, Response } from "express";
 import path from "path";
+
 import bodyParser from "body-parser";
 import dotenv from "dotenv";
 import cors from "cors";
 import fileUpload from "express-fileupload";
-import session from "express-session";
-
 import loginRoutes from "./routes/login.routes";
 import adminUserRoutes from "./routes/adminUser.routes";
 import adminempllRoutes from "./routes/adminempll.routes";
@@ -35,56 +34,27 @@ import calendarRoutes from "./routes/calendar.routes";
 import configsalRoutes from "./routes/configsal.routes";
 import empaccountRoutes from "./routes/empaccount.routes";
 
-dotenv.config();
+
+
+import session from "express-session";
 
 const app: Application = express();
-const PORT: number = Number(process.env.PORT) || 3001;
+const PORT: number = 3001;
 
-const allowedOrigins = [
-  "http://localhost:5173",
-  "https://oms-indol.vercel.app",
-];
-
-app.use(
-  cors({
-    origin: (origin, callback) => {
-      if (!origin) return callback(null, true);
-
-      if (allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error(`CORS error: origin ${origin} not allowed`));
-      }
-    },
-    credentials: true,
-  })
-);
-
-app.options(
-  "*",
-  cors({
-    origin: allowedOrigins,
-    credentials: true,
-  })
-);
+dotenv.config();
 
 app.use(bodyParser.urlencoded({ extended: true }));
+app.use(cors());
 app.use(bodyParser.json());
-
 app.use(fileUpload());
 app.use("/uploads", express.static("uploads"));
 
-const SESSION_SECRET = process.env.SESSION_SECRET || "your_secret_key";
 app.use(
   session({
-    secret: SESSION_SECRET,
+    secret: "your_secret_key",
     resave: false,
-    saveUninitialized: false,
-    cookie: {
-      secure: process.env.NODE_ENV === "production",
-      httpOnly: true,
-      maxAge: 1000 * 60 * 60 * 24,
-    },
+    saveUninitialized: true,
+    cookie: { secure: false },
   })
 );
 
@@ -119,12 +89,14 @@ app.use("/api/admin", calendarRoutes);
 app.use("/api/admin", configsalRoutes);
 app.use("/api/admin", empaccountRoutes);
 
+
+
 app.get("/", (req: Request, res: Response) => {
   res.send("Backend is up and running 🚀");
 });
 
 app.listen(PORT, () => {
-  console.log(`Backend is running on port ${PORT}`);
+  console.log(` Backend is running on ${PORT}`);
 });
 
 export default app;
