@@ -1,33 +1,79 @@
 import { Request, Response } from "express";
 import pool from "../database/db";
 
+// export const getSalaries = async (req: Request, res: Response) => {
+//   try {
+//     const [rows] = await pool.query(
+//       `
+//       SELECT 
+//     c.id,
+//     c.employee_id,
+//     ANY_VALUE(e.employee_name) AS employee_name
+//     c.salary_amount,
+//     c.emp_of_mon_allowance,
+//     c.transport_allowance,
+//     c.medical_allowance,
+//     c.total_salary,
+
+//     IFNULL(SUM(l.deduction), 0) AS total_loan_deduction,
+
+//     (c.total_salary - IFNULL(SUM(l.deduction), 0)) AS net_salary,
+
+//     c.config_date
+//   FROM configempsalaries c
+//   LEFT JOIN employee_lifeline e 
+//     ON c.employee_id = e.employee_id
+//   LEFT JOIN loan l
+//     ON l.employee_id = c.employee_id
+//   WHERE c.status = 'ACTIVE'
+//   GROUP BY c.id
+//   ORDER BY c.config_date DESC
+//       `
+//     );
+
+//     res.json({
+//       salaries: rows,
+//       total: (rows as any).length,
+//     });
+//   } catch (error) {
+//     console.error(error);
+//     res.status(500).json({ message: "Error fetching salaries" });
+//   }
+// };
+
 export const getSalaries = async (req: Request, res: Response) => {
   try {
     const [rows] = await pool.query(
       `
       SELECT 
-    c.id,
-    c.employee_id,
-    ANY_VALUE(e.employee_name) AS employee_name,
-    c.salary_amount,
-    c.emp_of_mon_allowance,
-    c.transport_allowance,
-    c.medical_allowance,
-    c.total_salary,
-
-    IFNULL(SUM(l.deduction), 0) AS total_loan_deduction,
-
-    (c.total_salary - IFNULL(SUM(l.deduction), 0)) AS net_salary,
-
-    c.config_date
-  FROM configempsalaries c
-  LEFT JOIN employee_lifeline e 
-    ON c.employee_id = e.employee_id
-  LEFT JOIN loan l
-    ON l.employee_id = c.employee_id
-  WHERE c.status = 'ACTIVE'
-  GROUP BY c.id
-  ORDER BY c.config_date DESC
+        c.id,
+        c.employee_id,
+        e.employee_name,
+        c.salary_amount,
+        c.emp_of_mon_allowance,
+        c.transport_allowance,
+        c.medical_allowance,
+        c.total_salary,
+        IFNULL(SUM(l.deduction), 0) AS total_loan_deduction,
+        (c.total_salary - IFNULL(SUM(l.deduction), 0)) AS net_salary,
+        c.config_date
+      FROM configempsalaries c
+      LEFT JOIN employee_lifeline e 
+        ON c.employee_id = e.employee_id
+      LEFT JOIN loan l
+        ON l.employee_id = c.employee_id AND l.status = 'ACTIVE'
+      WHERE c.status = 'ACTIVE'
+      GROUP BY 
+        c.id, 
+        c.employee_id, 
+        e.employee_name,
+        c.salary_amount,
+        c.emp_of_mon_allowance,
+        c.transport_allowance,
+        c.medical_allowance,
+        c.total_salary,
+        c.config_date
+      ORDER BY c.config_date DESC
       `
     );
 
@@ -36,10 +82,11 @@ export const getSalaries = async (req: Request, res: Response) => {
       total: (rows as any).length,
     });
   } catch (error) {
-    console.error(error);
+    console.error("SQL ERROR:", error);
     res.status(500).json({ message: "Error fetching salaries" });
   }
 };
+
 
 export const getSalaryById = async (
   req: Request,
