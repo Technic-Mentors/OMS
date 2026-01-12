@@ -48,14 +48,14 @@ export const getSalaries = async (req: Request, res: Response) => {
       SELECT 
         c.id,
         c.employee_id,
-        e.employee_name,
+        COALESCE(e.employee_name, 'Unknown') AS employee_name,
         c.salary_amount,
         c.emp_of_mon_allowance,
         c.transport_allowance,
         c.medical_allowance,
         c.total_salary,
-        IFNULL(SUM(l.deduction), 0) AS total_loan_deduction,
-        (c.total_salary - IFNULL(SUM(l.deduction), 0)) AS net_salary,
+        COALESCE(SUM(CAST(l.deduction AS DECIMAL(10,2))), 0) AS total_loan_deduction,
+        (c.total_salary - COALESCE(SUM(CAST(l.deduction AS DECIMAL(10,2))), 0)) AS net_salary,
         c.config_date
       FROM configempsalaries c
       LEFT JOIN employee_lifeline e 
@@ -81,11 +81,12 @@ export const getSalaries = async (req: Request, res: Response) => {
       salaries: rows,
       total: (rows as any).length,
     });
-  } catch (error) {
-    console.error("SQL ERROR:", error);
+  } catch (error: any) {
+    console.error("SQL ERROR:", error.sqlMessage || error.message || error);
     res.status(500).json({ message: "Error fetching salaries" });
   }
 };
+
 
 
 export const getSalaryById = async (
