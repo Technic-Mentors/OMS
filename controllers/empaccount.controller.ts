@@ -7,7 +7,7 @@ export const addEmployeePayment = async (req: Request, res: Response) => {
     const { v4: uuidv4 } = await import("uuid");
  
     const {
-      employeeId,
+      employee_id,
       payableSalary,
       withdrawAmount,
       balance,
@@ -22,7 +22,7 @@ export const addEmployeePayment = async (req: Request, res: Response) => {
        (employee_id, invoice_no, transaction_date, withdraw_amount, refund_amount, balance, payment_method)
        VALUES (?, ?, ?, ?, 0, ?, ?)`,
       [
-        employeeId,
+        employee_id,
         invoiceNo,
         paymentDate,
         withdrawAmount,
@@ -43,7 +43,7 @@ export const addEmployeeRefund = async (req: Request, res: Response) => {
     // Dynamic import for uuid (ESM safe)
     const { v4: uuidv4 } = await import("uuid");
  
-    const { employeeId, refundAmount, balance, paymentMethod, date } = req.body;
+    const { employee_id, refundAmount, balance, paymentMethod, paymentDate } = req.body;
  
     const invoiceNo = `REF-${uuidv4().slice(0, 8)}`;
  
@@ -51,7 +51,7 @@ export const addEmployeeRefund = async (req: Request, res: Response) => {
       `INSERT INTO employee_accounts
        (employee_id, invoice_no, transaction_date, withdraw_amount, refund_amount, balance, payment_method)
        VALUES (?, ?, ?, 0, ?, ?, ?)`,
-      [employeeId, invoiceNo, date, refundAmount, balance, paymentMethod]
+      [employee_id, invoiceNo, paymentDate, refundAmount, balance, paymentMethod]
     );
  
     res.status(201).json({ message: "Refund added successfully" });
@@ -93,7 +93,7 @@ export const getEmployeeRefunds = async (req: Request, res: Response) => {
         id,
         invoice_no AS invoiceNumber,
         refund_amount AS refundAmount,
-        transaction_date AS date
+        transaction_date AS paymentDate
        FROM employee_accounts
        WHERE employee_id = ? AND refund_amount > 0
        ORDER BY transaction_date ASC`,
