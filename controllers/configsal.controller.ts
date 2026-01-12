@@ -61,7 +61,7 @@ export const getSalaries = async (req: Request, res: Response) => {
       LEFT JOIN employee_lifeline e 
         ON c.employee_id = e.employee_id
       LEFT JOIN loan l
-        ON l.employee_id = c.employee_id AND l.status = 'ACTIVE'
+        ON l.employee_id = c.employee_id
       WHERE c.status = 'ACTIVE'
       GROUP BY 
         c.id, 
