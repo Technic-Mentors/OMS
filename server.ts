@@ -33,8 +33,14 @@ import quotationRoutes from "./routes/quotation.routes";
 import calendarRoutes from "./routes/calendar.routes";
 import configsalRoutes from "./routes/configsal.routes";
 import empaccountRoutes from "./routes/empaccount.routes";
-
-
+import overtimeRoutes from "./routes/overtime.routes";
+import advsalaryRoutes from "./routes/advsalary.routes";
+import loanRoutes from "./routes/loan.routes";
+import customerAccRoutes from "./routes/customeracc.routes";
+import supplierAccRoutes from "./routes/supplieracc.routes";
+import promotionRoutes from "./routes/promotion.routes";
+import resignationRoutes from "./routes/resignation.routes";
+import rejoinRoutes from "./routes/rejoin.routes";
 
 import session from "express-session";
 
@@ -87,9 +93,15 @@ app.use("/api/admin", paymentRoutes);
 app.use("/api/admin", quotationRoutes);
 app.use("/api/admin", calendarRoutes);
 app.use("/api/admin", configsalRoutes);
-app.use("/api/admin", empaccountRoutes);
-
-
+app.use("/api", empaccountRoutes);
+app.use("/api", overtimeRoutes);
+app.use("/api", advsalaryRoutes);
+app.use("/api", loanRoutes);
+app.use("/api/admin", customerAccRoutes);
+app.use("/api/admin", supplierAccRoutes);
+app.use("/api", promotionRoutes);
+app.use("/api", resignationRoutes);
+app.use("/api", rejoinRoutes);
 
 app.get("/", (req: Request, res: Response) => {
   res.send("Backend is up and running 🚀");

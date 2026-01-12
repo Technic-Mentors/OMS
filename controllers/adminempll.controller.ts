@@ -133,6 +133,10 @@ export const updateEmpll = async (
     const { employeeName, contact, position, date } =
       req.body as EmployeeLifeLine;
 
+    const formattedDate = date
+      ? new Date(date).toLocaleDateString("sv-SE")
+      : null;
+
     if (!employeeName || !contact || !position || !date) {
       res.status(400).json({ message: "All fields are required" });
       return;
@@ -142,7 +146,7 @@ export const updateEmpll = async (
       `UPDATE employee_lifeline
        SET employee_name = ?, contact = ?, position = ?, date = ?
        WHERE id = ?`,
-      [employeeName, contact, position, date, id]
+      [employeeName, contact, position, formattedDate, id]
     );
 
     if (result.affectedRows === 0) {
@@ -159,7 +163,7 @@ export const updateEmpll = async (
 
     const updatedLifeLine = rows[0];
     updatedLifeLine.date = updatedLifeLine.date
-      ? new Date(updatedLifeLine.date).toISOString().split("T")[0]
+      ? new Date(updatedLifeLine.date).toLocaleDateString('sv-SE')
       : null;
 
     res.status(200).json({

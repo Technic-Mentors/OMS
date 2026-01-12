@@ -5,12 +5,18 @@ import {
   getEmployeePayments,
   getEmployeeRefunds,
 } from "../controllers/empaccount.controller";
+import { authenticateToken } from "../middleware/middleware";
 
 const router = Router();
 
-router.post("/addEmployeePayment", addEmployeePayment);
-router.post("/addEmployeeRefund", addEmployeeRefund);
-router.get("/getEmployeePayments/:id", getEmployeePayments);
-router.get("/getEmployeeRefunds/:id", getEmployeeRefunds);
+router.post("/admin/addEmployeePayment", authenticateToken, addEmployeePayment);
+router.post("/admin/addEmployeeRefund", authenticateToken, addEmployeeRefund);
+
+router.get("/admin/getEmployeePayments/:id", authenticateToken, getEmployeePayments);
+router.get("/user/getMyPayments", authenticateToken, getEmployeePayments);
+
+router.get("/admin/getEmployeeRefunds/:id", authenticateToken, getEmployeeRefunds);
+router.get("/user/getMyRefunds", authenticateToken, getEmployeeRefunds);
+
 
 export default router;
