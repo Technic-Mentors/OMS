@@ -9,8 +9,7 @@ import { authenticateToken } from "../middleware/middleware";
 
 const router = Router();
 
-router.post("/admin/addEmployeePayment", authenticateToken, addEmployeePayment);
-router.post("/admin/addEmployeeRefund", authenticateToken, addEmployeeRefund);
+router.post("/admin/addEmployeeAccount", authenticateToken, addEmployeePayment);
 
 router.get("/admin/getEmployeePayments/:id", authenticateToken, getEmployeePayments);
 router.get("/user/getMyPayments", authenticateToken, getEmployeePayments);
