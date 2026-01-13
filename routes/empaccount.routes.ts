@@ -1,21 +1,24 @@
 import { Router } from "express";
 import {
-  addEmployeePayment,
-  addEmployeeRefund,
-  getEmployeePayments,
-  getEmployeeRefunds,
+  addEmployeeAccount,
+  getEmployeeAccount,
 } from "../controllers/empaccount.controller";
-import { authenticateToken } from "../middleware/middleware";
+import { authenticateToken, isAdmin } from "../middleware/middleware";
 
 const router = Router();
 
-router.post("/admin/addEmployeeAccount", authenticateToken, addEmployeePayment);
+router.post(
+  "/admin/addEmployeeAccount",
+  authenticateToken,
+  isAdmin,
+  addEmployeeAccount
+);
 
-router.get("/admin/getEmployeePayments/:id", authenticateToken, getEmployeePayments);
-router.get("/user/getMyPayments", authenticateToken, getEmployeePayments);
-
-router.get("/admin/getEmployeeRefunds/:id", authenticateToken, getEmployeeRefunds);
-router.get("/user/getMyRefunds", authenticateToken, getEmployeeRefunds);
-
+router.get(
+  "/admin/getEmployeeAccount/:employeeId",
+  authenticateToken,
+  isAdmin,
+  getEmployeeAccount
+);
 
 export default router;

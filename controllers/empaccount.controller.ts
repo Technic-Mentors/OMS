@@ -1,108 +1,89 @@
 import { Request, Response } from "express";
 import pool from "../database/db";
- 
-export const addEmployeePayment = async (req: Request, res: Response) => {
+
+const generateRefNo = async (): Promise<string> => {
+  const [rows]: any = await pool.query(
+    `SELECT id FROM employee_accounts ORDER BY id DESC LIMIT 1`
+  );
+
+  const nextId = rows.length ? rows[0].id + 1 : 1;
+  return `EA-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-${String(nextId).padStart(4, "0")}`;
+};
+
+
+export const addEmployeeAccount = async (req: Request, res: Response):Promise <void> => {
   try {
-    // Dynamic import for uuid (ESM safe)
-    const { v4: uuidv4 } = await import("uuid");
- 
     const {
       employee_id,
-      payableSalary,
-      withdrawAmount,
-      balance,
-      paymentMethod,
-      paymentDate,
+      debit = 0,
+      credit = 0,
+      payment_method,
+      payment_date,
     } = req.body;
- 
-    const invoiceNo = `WIT-${uuidv4().slice(0, 8)}`;
- 
+
+    if (!employee_id || (!debit && !credit)) {
+       res.status(400).json({ message: "Invalid payload" });
+    }
+
+    const [last]: any = await pool.query(
+      `SELECT balance FROM employee_accounts 
+       WHERE employee_id = ? 
+       ORDER BY id DESC LIMIT 1`,
+      [employee_id]
+    );
+
+    const previousBalance = last.length ? Number(last[0].balance) : 0;
+    const currentBalance = previousBalance + debit - credit;
+
+    const refNo = await generateRefNo();
+
     await pool.query(
-      `INSERT INTO employee_accounts
-       (employee_id, invoice_no, transaction_date, withdraw_amount, refund_amount, balance, payment_method)
-       VALUES (?, ?, ?, ?, 0, ?, ?)`,
+      `INSERT INTO employee_accounts 
+      (employee_id, refNo, payment_date, debit, credit, balance, payment_method)
+      VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [
         employee_id,
-        invoiceNo,
-        paymentDate,
-        withdrawAmount,
-        balance,
-        paymentMethod,
+        refNo,
+        payment_date,
+        debit,
+        credit,
+        currentBalance,
+        payment_method,
       ]
     );
- 
-    res.status(201).json({ message: "Payment withdraw added successfully" });
+
+     res.status(201).json({
+      message: "Employee account entry added successfully",
+    });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Failed to add payment withdraw" });
+    console.error("Add Employee Account Error:", error);
+     res.status(500).json({ message: "Server error" });
   }
 };
- 
-export const addEmployeeRefund = async (req: Request, res: Response) => {
+
+
+export const getEmployeeAccount = async (req: Request, res: Response):Promise <void> => {
   try {
-    // Dynamic import for uuid (ESM safe)
-    const { v4: uuidv4 } = await import("uuid");
- 
-    const { employee_id, refundAmount, balance, paymentMethod, paymentDate } = req.body;
- 
-    const invoiceNo = `REF-${uuidv4().slice(0, 8)}`;
- 
-    await pool.query(
-      `INSERT INTO employee_accounts
-       (employee_id, invoice_no, transaction_date, withdraw_amount, refund_amount, balance, payment_method)
-       VALUES (?, ?, ?, 0, ?, ?, ?)`,
-      [employee_id, invoiceNo, paymentDate, refundAmount, balance, paymentMethod]
-    );
- 
-    res.status(201).json({ message: "Refund added successfully" });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Failed to add refund" });
-  }
-};
- 
-export const getEmployeePayments = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
- 
-    const [rows] = await pool.query(
+    const { employeeId } = req.params;
+
+    const [rows]: any = await pool.query(
       `SELECT 
         id,
-        invoice_no AS invoiceNumber,
-        withdraw_amount AS withdrawAmount,
-        transaction_date AS date
-       FROM employee_accounts
-       WHERE employee_id = ? AND withdraw_amount > 0
-       ORDER BY transaction_date ASC`,
-      [id]
+        refNo,
+        debit,
+        credit,
+        payment_method,
+        payment_date,
+        balance
+      FROM employee_accounts
+      WHERE employee_id = ?
+      ORDER BY payment_date ASC, id ASC`,
+      [employeeId]
     );
- 
-    res.json(rows);
+
+     res.json({ accounts: rows });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Failed to fetch payments" });
-  }
-};
- 
-export const getEmployeeRefunds = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
- 
-    const [rows] = await pool.query(
-      `SELECT 
-        id,
-        invoice_no AS invoiceNumber,
-        refund_amount AS refundAmount,
-        transaction_date AS paymentDate
-       FROM employee_accounts
-       WHERE employee_id = ? AND refund_amount > 0
-       ORDER BY transaction_date ASC`,
-      [id]
-    );
- 
-    res.json(rows);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Failed to fetch refunds" });
+    console.error("Get Employee Account Error:", error);
+     res.status(500).json({ message: "Server error" });
   }
 };
