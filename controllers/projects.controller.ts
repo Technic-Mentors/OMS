@@ -13,6 +13,7 @@ export const getAllProjects = async (
         projectName,
         projectCategory,
         description,
+        completionStatus,
         DATE_FORMAT(startDate, '%Y-%m-%d') as startDate,
         DATE_FORMAT(endDate, '%Y-%m-%d') as endDate
       FROM projects
@@ -33,7 +34,7 @@ export const addProject = async (
   res: Response
 ): Promise<void> => {
   try {
-    const { projectName, projectCategory, description, startDate, endDate } =
+    const { projectName, projectCategory, description, startDate, endDate , completionStatus } =
       req.body;
 
     if (!projectName || !projectCategory || !startDate || !endDate) {
@@ -47,7 +48,7 @@ export const addProject = async (
       (projectName, projectCategory, description, startDate, endDate, projectStatus, completionStatus)
       VALUES (?, ?, ?, ?, ?, 'Y', 'New')
       `,
-      [projectName, projectCategory, description, startDate, endDate]
+      [projectName, projectCategory, description, startDate, endDate, completionStatus]
     );
 
     res.status(201).json({ message: "Project added successfully" });
@@ -72,7 +73,7 @@ export const updateProject = async (
       completionStatus,
     } = req.body;
 
-    if (!projectName || !projectCategory || !startDate || !endDate) {
+    if (!projectName || !projectCategory || !startDate || !endDate || !completionStatus) {
       res.status(400).json({ message: "Required fields are missing" });
       return;
     }
