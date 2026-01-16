@@ -46,7 +46,7 @@ export const addProject = async (
       `
       INSERT INTO projects 
       (projectName, projectCategory, description, startDate, endDate, projectStatus, completionStatus)
-      VALUES (?, ?, ?, ?, ?, 'Y', 'New')
+      VALUES (?, ?, ?, ?, ?, 'Y', ?)
       `,
       [projectName, projectCategory, description, startDate, endDate, completionStatus]
     );
@@ -126,6 +126,19 @@ export const updateProject = async (
     res.status(500).json({ message: "Failed to update project" });
   }
 };
+
+export const updateCompletionStatus = async (req: Request, res: Response) => {
+  const { projectId } = req.params;
+  const { completionStatus } = req.body;
+
+  await pool.query(
+    `UPDATE projects SET completionStatus = ? WHERE id = ?`,
+    [completionStatus, projectId]
+  );
+
+  res.status(200).json({ message: "Status updated" });
+};
+
 
 export const deleteProject = async (
   req: Request,
