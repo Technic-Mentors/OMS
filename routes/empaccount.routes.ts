@@ -1,3 +1,4 @@
+// routes/empaccount.routes.ts
 import { Router } from "express";
 import {
   addEmployeeAccount,
@@ -6,27 +7,13 @@ import {
 } from "../controllers/empaccount.controller";
 import { authenticateToken, isAdmin } from "../middleware/middleware";
 
-const router = Router();
+const router: Router = Router();
 
-router.post(
-  "/admin/addEmployeeAccount",
-  authenticateToken,
-  isAdmin,
-  addEmployeeAccount
-);
+// Admin routes
+router.post("/admin/addEmployeeAccount", authenticateToken, isAdmin, addEmployeeAccount);
+router.get("/admin/getEmployeeAccount/:employeeId", authenticateToken, isAdmin, getEmployeeAccount);
 
-router.get(
-  "/admin/getEmployeeAccount/:employeeId",
-  authenticateToken,
-  isAdmin,
-  getEmployeeAccount
-);
-
-router.get(
-  "/user/getMyEmployeeAccount",
-  authenticateToken,
-  getEmployeeAccountForUser
-);
-
+// User route
+router.get("/user/getMyEmployeeAccount", authenticateToken, getEmployeeAccountForUser);
 
 export default router;
