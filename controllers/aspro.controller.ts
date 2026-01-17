@@ -17,6 +17,7 @@ export const getAllAssignProjects = async (req: Request, res: Response) => {
   ap.id,
   ap.employee_id,
   ap.projectId,
+  ap.date,
   u.name,
   p.projectName
 FROM assignedprojects ap
@@ -42,6 +43,7 @@ export const getMyAssignProjects = async (req: Request, res: Response) => {
         ap.id,
         ap.employee_id,
         ap.projectId,
+        ap.date,
         u.name,
         p.projectName
       FROM assignedprojects ap

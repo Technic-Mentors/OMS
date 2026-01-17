@@ -127,36 +127,67 @@ export const addLeave = async (req: RequestWithUser, res: Response) => {
   }
 };
 
+
 export const updateLeave = async (
   req: RequestWithUser,
   res: Response
 ): Promise<void> => {
   try {
-    const leaveId = req.params.id;
+    const leaveId = Number(req.params.id);
     const { leaveStatus, date, leaveSubject, leaveReason } = req.body;
 
-    const query = `
-      UPDATE leaves
-      SET date = ?, leaveStatus = ?, leaveSubject = ?, leaveReason = ?
-      WHERE id = ?
-    `;
+    await pool.query(
+      `UPDATE leaves
+       SET date = ?, leaveStatus = ?, leaveSubject = ?, leaveReason = ?
+       WHERE id = ?`,
+      [date, leaveStatus, leaveSubject, leaveReason, leaveId]
+    );
 
-    const formattedDate = date ? date : null;
+    if (leaveStatus === "Approved") {
+      const [leaveRows] = await pool.query<RowDataPacket[]>(
+        `SELECT userId, date, leaveReason FROM leaves WHERE id = ?`,
+        [leaveId]
+      );
 
-    await pool.query(query, [
-      formattedDate,
-      leaveStatus,
-      leaveSubject,
-      leaveReason,
-      leaveId,
-    ]);
+      if (leaveRows.length > 0) {
+        const { userId, date, leaveReason } = leaveRows[0];
 
-    res.status(200).json({ message: "Leave updated successfully" });
+        const [attendanceRows] = await pool.query<RowDataPacket[]>(
+          `SELECT id FROM attendance
+           WHERE userId = ? AND date = ? AND status = 'Y'`,
+          [userId, date]
+        );
+
+        if (attendanceRows.length > 0) {
+          await pool.query(
+            `UPDATE attendance
+             SET attendanceStatus = 'Leave',
+                 leaveApprovalStatus = 'Approved',
+                 leaveReason = ?
+             WHERE userId = ? AND date = ?`,
+            [leaveReason, userId, date]
+          );
+        } else {
+          await pool.query(
+            `INSERT INTO attendance
+             (userId, date, attendanceStatus, leaveApprovalStatus, leaveReason, status)
+             VALUES (?, ?, 'Leave', 'Approved', ?, 'Y')`,
+            [userId, date, leaveReason]
+          );
+        }
+      }
+    }
+
+    res.status(200).json({
+      message: "Leave approved and attendance synced successfully",
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Server error" });
   }
 };
+
+
 
 
 

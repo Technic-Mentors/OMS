@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import pool from "../database/db";
 
+
 const generateRefNo = async (): Promise<string> => {
   const [rows]: any = await pool.query(
     `SELECT id FROM employee_accounts ORDER BY id DESC LIMIT 1`
@@ -87,3 +88,26 @@ export const getEmployeeAccount = async (req: Request, res: Response):Promise <v
      res.status(500).json({ message: "Server error" });
   }
 };
+
+export const getEmployeeAccountForUser = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const employeeId = (req as any).user.id;
+
+    const [rows]: any = await pool.query(
+      `SELECT id, refNo, debit, credit, payment_method, payment_date, balance
+       FROM employee_accounts
+       WHERE employee_id = ?
+       ORDER BY payment_date ASC, id ASC`,
+      [employeeId]
+    );
+
+    res.json({ accounts: rows });
+  } catch (error) {
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+

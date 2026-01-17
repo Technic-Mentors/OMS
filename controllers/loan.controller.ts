@@ -35,23 +35,24 @@ export const getMyLoans = async (
 ): Promise<void> => {
   try {
     const employeeId = req.user?.id;
-    if (!employeeId) res.status(400).json({ message: "Employee ID missing" });
+    if (!employeeId)  res.status(400).json({ message: "Employee ID missing" });
 
     const [rows] = await pool.query(
-      `
-      SELECT 
-        id,
-        employee_id,
-        applyDate,
-        refNo,
-        loanAmount,
-        deduction,
-        remainingAmount,
-        return_amount
-      FROM loan
-      WHERE employee_id = ?
-      ORDER BY id DESC
-      `,
+      `SELECT 
+        l.id,
+        l.employee_id,
+        e.employee_name,
+        e.contact,
+        l.applyDate,
+        l.refNo,
+        l.loanAmount,
+        l.deduction,
+        l.remainingAmount,
+        l.return_amount
+      FROM loan l
+      JOIN employee_lifeline e ON e.employee_id = l.employee_id
+      WHERE l.employee_id = ?
+      ORDER BY l.id DESC`,
       [employeeId]
     );
 
@@ -61,6 +62,7 @@ export const getMyLoans = async (
     res.status(500).json({ message: "Failed to fetch loans" });
   }
 };
+
 
 export const addLoan = async (
   req: AuthenticatedRequest,

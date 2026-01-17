@@ -2,6 +2,7 @@ import { Router } from "express";
 import {
   addEmployeeAccount,
   getEmployeeAccount,
+  getEmployeeAccountForUser
 } from "../controllers/empaccount.controller";
 import { authenticateToken, isAdmin } from "../middleware/middleware";
 
@@ -20,5 +21,12 @@ router.get(
   isAdmin,
   getEmployeeAccount
 );
+
+router.get(
+  "/user/getMyEmployeeAccount",
+  authenticateToken,
+  getEmployeeAccountForUser
+);
+
 
 export default router;
