@@ -11,7 +11,7 @@ const router: Router = Router();
 
 // Admin routes
 router.post("/admin/addEmployeeAccount", authenticateToken, isAdmin, addEmployeeAccount);
-router.get("/admin/getEmployeeAccount/:employeeId", authenticateToken, isAdmin, getEmployeeAccount);
+router.get("/admin/getEmployeeAccount/:employee_id", authenticateToken, isAdmin, getEmployeeAccount);
 
 // User route
 router.get("/user/getMyEmployeeAccount", authenticateToken, getEmployeeAccountForUser);

@@ -80,7 +80,7 @@ export const addExpense = async (
 ): Promise<void> => {
   const { expenseName, expenseCategoryId, addedBy, date, amount } = req.body;
 
-  const formattedDate = new Date(date).toISOString().split("T")[0];
+  const formattedDate = new Date(date).toLocaleDateString('sv-SE');
 
   try {
     await pool.query(

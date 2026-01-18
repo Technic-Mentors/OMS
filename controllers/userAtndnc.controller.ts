@@ -30,10 +30,23 @@ const calculateWorkingHours = (clockIn: string, clockOut: string) => {
   return `${hours}:${minutes.toString().padStart(2, "0")}`;
 };
 
+const getConfigTimes = async () => {
+  const [rows]: any = await pool.query(
+    "SELECT configureType, configureTime FROM configuretime WHERE status='Y'",
+  );
+
+  const config: { [key: string]: string } = {};
+  rows.forEach((row: any) => {
+    config[row.configureType] = row.configureTime;
+  });
+
+  return config;
+};
+
 export const getUsers = async (req: Request, res: Response): Promise<void> => {
   try {
     const [rows] = await pool.query<RowDataPacket[]>(
-      "SELECT id, name, role FROM login WHERE status = 'Y'"
+      "SELECT id, name, role FROM login WHERE status = 'Y'",
     );
 
     res.json({ users: rows });
@@ -52,7 +65,7 @@ export const getAllAttendances = async (req: Request, res: Response) => {
        FROM attendance a
        JOIN login u ON a.userId = u.id
        WHERE a.status = 'Y'
-       ORDER BY a.date DESC`
+       ORDER BY a.date DESC`,
     );
 
     res.json(rows);
@@ -64,7 +77,7 @@ export const getAllAttendances = async (req: Request, res: Response) => {
 
 export const getMyAttendances = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     const userId = (req as any).user?.id;
@@ -82,7 +95,7 @@ export const getMyAttendances = async (
        WHERE a.userId = ?
          AND a.status = 'Y'
        ORDER BY a.date DESC`,
-      [userId]
+      [userId],
     );
 
     res.json(rows);
@@ -92,28 +105,46 @@ export const getMyAttendances = async (
   }
 };
 
-
 export const addAttendance = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   const { userId } = req.params;
-  const { date, clockIn, clockOut, attendanceStatus } = req.body;
+  const { date, clockIn, clockOut } = req.body;
 
   try {
     const formattedDate = toMySQLDate(date);
     const workingHours = calculateWorkingHours(clockIn, clockOut);
 
+    const configTimes = await getConfigTimes();
+
+    let attendanceStatus = "Present";
+
+    if (configTimes["Late"] && clockIn >= configTimes["Late"]) {
+      attendanceStatus = "Late";
+    }
+    if (configTimes["Absent"] && clockIn >= configTimes["Absent"]) {
+      attendanceStatus = "Absent";
+    }
+
     const [result] = await pool.query<ResultSetHeader>(
       `INSERT INTO attendance
        (userId, date, clockIn, clockOut, attendanceStatus, workingHours, status)
        VALUES (?, ?, ?, ?, ?, ?, 'Y')`,
-      [userId, formattedDate, clockIn, clockOut, attendanceStatus, workingHours]
+      [
+        userId,
+        formattedDate,
+        clockIn,
+        clockOut,
+        attendanceStatus,
+        workingHours,
+      ],
     );
 
     res.json({
       message: "Attendance added successfully",
       id: result.insertId,
+      attendanceStatus,
     });
   } catch (error) {
     console.error(error);
@@ -123,7 +154,7 @@ export const addAttendance = async (
 
 export const updateAttendance = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   const { id } = req.params;
   const { userId, date, clockIn, clockOut, attendanceStatus } = req.body;
@@ -131,6 +162,16 @@ export const updateAttendance = async (
   try {
     const formattedDate = toMySQLDate(date);
     const workingHours = calculateWorkingHours(clockIn, clockOut);
+
+    const configTimes = await getConfigTimes();
+
+    let attendanceStatus = "Present";
+    if (configTimes["Late"] && clockIn >= configTimes["Late"]) {
+      attendanceStatus = "Late";
+    }
+    if (configTimes["Absent"] && clockIn >= configTimes["Absent"]) {
+      attendanceStatus = "Absent";
+    }
 
     await pool.query<ResultSetHeader>(
       `UPDATE attendance
@@ -145,7 +186,7 @@ export const updateAttendance = async (
         attendanceStatus,
         workingHours,
         id,
-      ]
+      ],
     );
 
     res.json({ message: "Attendance updated successfully" });
@@ -157,14 +198,14 @@ export const updateAttendance = async (
 
 export const deleteAttendance = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   const { id } = req.params;
 
   try {
     await pool.query<ResultSetHeader>(
       `UPDATE attendance SET status = 'N' WHERE id = ?`,
-      [id]
+      [id],
     );
 
     res.json({ message: "Attendance deleted successfully" });

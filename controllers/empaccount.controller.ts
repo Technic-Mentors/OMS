@@ -1,8 +1,6 @@
-// controllers/empaccount.controller.ts
 import { Request, Response } from "express";
 import pool from "../database/db";
 
-// Generate a unique reference number
 const generateRefNo = async (): Promise<string> => {
   try {
     const [rows]: any = await pool.query(
@@ -16,7 +14,6 @@ const generateRefNo = async (): Promise<string> => {
   }
 };
 
-// Add a new employee account entry
 export const addEmployeeAccount = async (req: Request, res: Response): Promise<void> => {
   try {
     const { employee_id, debit = 0, credit = 0, payment_method, payment_date } = req.body;
@@ -52,11 +49,10 @@ export const addEmployeeAccount = async (req: Request, res: Response): Promise<v
   }
 };
 
-// Get account entries for a specific employee (admin)
 export const getEmployeeAccount = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { employeeId } = req.params;
-    if (!employeeId) {
+    const { employee_id } = req.params;
+    if (!employee_id) {
       res.status(400).json({ message: "Employee ID is required" });
       return;
     }
@@ -66,7 +62,7 @@ export const getEmployeeAccount = async (req: Request, res: Response): Promise<v
        FROM employee_accounts
        WHERE employee_id = ?
        ORDER BY payment_date ASC, id ASC`,
-      [employeeId]
+      [employee_id]
     );
 
     res.json({ accounts: rows });
@@ -76,7 +72,6 @@ export const getEmployeeAccount = async (req: Request, res: Response): Promise<v
   }
 };
 
-// Get account entries for the currently authenticated user
 export const getEmployeeAccountForUser = async (req: Request, res: Response): Promise<void> => {
   try {
     const user = (req as any).user;
@@ -85,14 +80,14 @@ export const getEmployeeAccountForUser = async (req: Request, res: Response): Pr
       return;
     }
 
-    const employeeId = user.id;
+    const employee_id = user.id;
 
     const [rows]: any = await pool.query(
       `SELECT id, refNo, debit, credit, payment_method, payment_date, balance
        FROM employee_accounts
        WHERE employee_id = ?
        ORDER BY payment_date ASC, id ASC`,
-      [employeeId]
+      [employee_id]
     );
 
     res.json({ accounts: rows });
