@@ -18,7 +18,7 @@ export const getAllLoans = async (_req: Request, res: Response) => {
         l.return_amount
 
       FROM loan l
-      JOIN employee_lifeline e ON e.employee_id = l.employee_id
+      LEFT JOIN employee_lifeline e ON e.employee_id = l.employee_id
       ORDER BY l.id ASC
     `);
 
@@ -50,7 +50,7 @@ export const getMyLoans = async (
         l.remainingAmount,
         l.return_amount
       FROM loan l
-      JOIN employee_lifeline e ON e.employee_id = l.employee_id
+      LEFT JOIN employee_lifeline e ON e.employee_id = l.employee_id
       WHERE l.employee_id = ?
       ORDER BY l.id DESC`,
       [employeeId]
