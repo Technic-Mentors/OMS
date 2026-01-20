@@ -2,6 +2,8 @@ import { Router } from "express";
 import {
   getAllRejoinRequests,
   getMyRejoinRequests,
+  getMyLifeLine,
+  getMyResignation,
   addRejoinRequest,
   updateRejoinRequest,
   deleteRejoinRequest,
@@ -10,12 +12,18 @@ import { authenticateToken } from "../middleware/middleware";
 
 const router = Router();
 
-router.get("/admin/getAllRejoinRequests", authenticateToken, getAllRejoinRequests);
+router.get(
+  "/admin/getAllRejoinRequests",
+  authenticateToken,
+  getAllRejoinRequests,
+);
 router.post("/admin/addRejoin", authenticateToken, addRejoinRequest);
 router.put("/admin/updateRejoin/:id", authenticateToken, updateRejoinRequest);
 router.patch("/admin/deleteRejoin/:id", authenticateToken, deleteRejoinRequest);
 
 router.get("/user/getMyRejoinRequests", authenticateToken, getMyRejoinRequests);
+router.get("/user/getMyLifeLine", authenticateToken, getMyLifeLine);
+router.get("/user/getMyResignation", authenticateToken, getMyResignation);
 router.post("/user/addRejoin", authenticateToken, addRejoinRequest);
 router.put("/user/updateMyRejoin/:id", authenticateToken, updateRejoinRequest);
 

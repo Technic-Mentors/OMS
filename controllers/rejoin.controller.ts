@@ -4,11 +4,11 @@ import { AuthenticatedRequest } from "../middleware/middleware";
 
 export const getAllRejoinRequests = async (
   req: AuthenticatedRequest,
-  res: Response
+  res: Response,
 ) => {
   try {
     const [rows] = await pool.query(
-      "SELECT * FROM rejoin WHERE is_deleted = 0 ORDER BY id DESC"
+      "SELECT * FROM rejoin WHERE is_deleted = 0 ORDER BY id DESC",
     );
     res.json(rows);
   } catch (err) {
@@ -19,7 +19,7 @@ export const getAllRejoinRequests = async (
 
 export const getMyRejoinRequests = async (
   req: AuthenticatedRequest,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   if (!req.user) {
     res.status(401).json({ message: "Unauthorized" });
@@ -31,7 +31,7 @@ export const getMyRejoinRequests = async (
   try {
     const [rows] = await pool.query(
       "SELECT * FROM rejoin WHERE employee_id = ? AND is_deleted = 0 ORDER BY id DESC",
-      [userId]
+      [userId],
     );
     res.json(rows);
   } catch (err) {
@@ -40,9 +40,53 @@ export const getMyRejoinRequests = async (
   }
 };
 
+export const getMyLifeLine = async (
+  req: AuthenticatedRequest,
+  res: Response,
+) => {
+  if (!req.user) {
+    res.status(401).json({ message: "Unauthorized" });
+    return;
+  }
+
+  const userId = req.user.id;
+
+  try {
+    const [rows] = await pool.query(
+      "SELECT * FROM employee_lifeline WHERE employee_id = ? ORDER BY date DESC",
+      [userId],
+    );
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ message: "Failed to fetch lifeline" });
+  }
+};
+
+export const getMyResignation = async (
+  req: AuthenticatedRequest,
+  res: Response,
+) => {
+  if (!req.user) {
+    res.status(401).json({ message: "Unauthorized" });
+    return;
+  }
+
+  const userId = req.user.id;
+
+  try {
+    const [rows] = await pool.query(
+      "SELECT * FROM resignation WHERE employee_id = ? ORDER BY resignation_date DESC LIMIT 1",
+      [userId],
+    );
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ message: "Failed to fetch resignation" });
+  }
+};
+
 export const addRejoinRequest = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   const { id, note, rejoin_date } = req.body;
 
@@ -52,7 +96,7 @@ export const addRejoinRequest = async (
   try {
     const [employeeRows] = await pool.query(
       "SELECT employee_name, position AS designation FROM employee_lifeline WHERE employee_id = ?",
-      [id]
+      [id],
     );
 
     if (!Array.isArray(employeeRows) || employeeRows.length === 0)
@@ -62,7 +106,7 @@ export const addRejoinRequest = async (
 
     const [resignationRows] = await pool.query(
       "SELECT resignation_date FROM resignation WHERE employee_id = ? ORDER BY resignation_date DESC LIMIT 1",
-      [id]
+      [id],
     );
 
     const resignation_date =
@@ -81,7 +125,7 @@ export const addRejoinRequest = async (
         resignation_date,
         rejoin_date,
         note,
-      ]
+      ],
     );
 
     res.json({ message: "Rejoin request added successfully" });
@@ -93,7 +137,7 @@ export const addRejoinRequest = async (
 
 export const updateRejoinRequest = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   const { id } = req.params;
   const { rejoin_date, note, approval_status } = req.body;
@@ -101,7 +145,7 @@ export const updateRejoinRequest = async (
   try {
     const [rejoinRows] = await pool.query(
       "SELECT employee_id FROM rejoin WHERE id = ? AND is_deleted = 0",
-      [id]
+      [id],
     );
 
     if (!Array.isArray(rejoinRows) || rejoinRows.length === 0) {
@@ -112,7 +156,7 @@ export const updateRejoinRequest = async (
 
     const [employeeRows] = await pool.query(
       "SELECT position AS designation FROM employee_lifeline WHERE employee_id = ?",
-      [employee_id]
+      [employee_id],
     );
 
     const designation =
@@ -122,7 +166,7 @@ export const updateRejoinRequest = async (
 
     const [resignationRows] = await pool.query(
       "SELECT resignation_date FROM resignation WHERE employee_id = ? ORDER BY resignation_date DESC LIMIT 1",
-      [employee_id]
+      [employee_id],
     );
 
     const resignation_date =
@@ -138,7 +182,7 @@ export const updateRejoinRequest = async (
       note = ?, 
       approval_status = ? 
       WHERE id = ? AND is_deleted = 0`,
-      [designation, resignation_date, rejoin_date, note, approval_status, id]
+      [designation, resignation_date, rejoin_date, note, approval_status, id],
     );
 
     const newLoginStatus = approval_status === "Accepted" ? "Y" : "N";
@@ -170,7 +214,7 @@ export const deleteRejoinRequest = async (req: Request, res: Response) => {
 export const getActiveUsers = async (req: Request, res: Response) => {
   try {
     const [rows] = await pool.query(
-      "SELECT employee_id AS id, employee_name AS name, position AS designation FROM employee_lifeline WHERE loginStatus = 'Y'"
+      "SELECT employee_id AS id, employee_name AS name, position AS designation FROM employee_lifeline WHERE loginStatus = 'Y'",
     );
 
     res.json({ users: rows });
