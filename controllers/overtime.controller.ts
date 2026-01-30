@@ -7,6 +7,7 @@ export const getAllOvertime = async (req: Request, res: Response) => {
     const [rows]: any = await pool.query(`
       SELECT 
         o.id,
+        o.employee_id,
         u.name,
         o.date,
         o.time AS totalTime,
@@ -32,6 +33,7 @@ export const getMyOvertime = async (req: Request, res: Response) => {
       `
       SELECT 
         o.id,
+        o.employee_id,
         u.name,
         o.date,
         o.time AS totalTime,
