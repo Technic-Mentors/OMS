@@ -9,6 +9,7 @@ import { authenticateToken } from "../middleware/middleware";
 
 const router = Router();
 
+// GET all holidays
 router.get("/getHolidays", authenticateToken, getHolidays);
 router.post("/configHolidays", authenticateToken, addHoliday);
 router.put("/updateHoliday/:id", authenticateToken, updateHoliday);

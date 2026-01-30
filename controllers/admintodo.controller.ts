@@ -138,7 +138,7 @@ export const updateTodo = async (
 ): Promise<void> => {
   try {
     const { id } = req.params;
-    const { employee_id, task, note, startDate, endDate, deadline } = req.body;
+    const { employee_id, task, note, startDate, endDate, deadline, completionStatus } = req.body;
 
     if (!id) {
       res.status(400).json({ message: "Todo ID is required" });
@@ -159,7 +159,8 @@ export const updateTodo = async (
         note = ?,
         startDate = ?,
         endDate = ?,
-        deadline = ?
+        deadline = ?,
+        completionStatus = ?
       WHERE id = ?
     `;
 
@@ -170,6 +171,7 @@ export const updateTodo = async (
       normalizeDate(startDate),
       normalizeDate(endDate),
       normalizeDate(deadline),
+      completionStatus || "Defer",
       id,
     ]);
 
@@ -197,7 +199,7 @@ export const deleteTodo = async (
 
     const query = `
       UPDATE todo
-      SET completionStatus = 'Deleted'
+      SET todoStatus = 'Y'
       WHERE id = ?
     `;
 

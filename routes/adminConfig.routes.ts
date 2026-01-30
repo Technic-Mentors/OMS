@@ -8,6 +8,7 @@ import {
 
 const router = Router();
 
+
 router.get("/getTimeConfigured", getAllConfigTime);
 router.post("/configureTime", addConfigTime);
 router.put("/updateTime/:id", updateConfigTime);

@@ -37,8 +37,11 @@ export const getUserDashboard = async (
       SELECT COUNT(*) AS holidays
       FROM holidays
       WHERE holidayStatus = 'Y'
-        AND MONTH(date) = MONTH(CURRENT_DATE())
-        AND YEAR(date) = YEAR(CURRENT_DATE())
+        AND (
+          (MONTH(fromDate) = MONTH(CURRENT_DATE()) AND YEAR(fromDate) = YEAR(CURRENT_DATE()))
+          OR 
+          (MONTH(toDate) = MONTH(CURRENT_DATE()) AND YEAR(toDate) = YEAR(CURRENT_DATE()))
+        )
       `
     );
 
@@ -48,7 +51,7 @@ export const getUserDashboard = async (
       absents: attendance[0].absents || 0,
       totalTodos: todos[0].totalTodos || 0,
       totalProgress: progress[0].totalProgress || 0,
-      holidays: holidays[0].holidays || 0,
+      holidays: holidays[0]?.holidays || 0,
     });
   } catch (error) {
     console.error(error);

@@ -1,100 +1,91 @@
 import { Request, Response } from "express";
 import pool from "../database/db";
 
-interface ConfigTime {
+interface AttendanceRule {
   id?: number;
-  configureType: string;
-  configureTime: string;
+  startTime: string;
+  endTime: string;
+  offDay: string;
+  lateTime: string;
+  halfLeave: string;
 }
 
 export const getAllConfigTime = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     const [rows] = await pool.query(
-      "SELECT * FROM configuretime ORDER BY id ASC"
+      "SELECT * FROM attendance_rules ORDER BY id ASC",
     );
-
     res.json(rows);
-    return;
   } catch (error) {
-    console.error(error);
+    console.error("Fetch Error:", error);
     res.status(500).json({ message: "Server Error" });
-    return;
   }
 };
 
 export const addConfigTime = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
-    const { configureType, configureTime } = req.body as ConfigTime;
+    const { startTime, endTime, offDay, lateTime, halfLeave } =
+      req.body as AttendanceRule;
 
-    if (!configureType || !configureTime) {
+    if (!startTime || !endTime || !offDay || !lateTime || !halfLeave) {
       res.status(400).json({ message: "All fields are required" });
       return;
     }
 
     const [result] = await pool.query(
-      "INSERT INTO configuretime (configureType, configureTime) VALUES (?, ?)",
-      [configureType, configureTime]
+      "INSERT INTO attendance_rules (startTime, endTime, offDay, lateTime, halfLeave) VALUES (?, ?, ?, ?, ?)",
+      [startTime, endTime, offDay, lateTime, halfLeave],
     );
 
     res.status(201).json({
-      message: "Config Time added",
+      message: "Attendance rule added successfully",
       id: (result as any).insertId,
     });
-    return;
   } catch (error) {
-    console.error(error);
+    console.error("Insert Error:", error);
     res.status(500).json({ message: "Server Error" });
-    return;
   }
 };
 
 export const updateConfigTime = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     const { id } = req.params;
-    const { configureType, configureTime } = req.body as ConfigTime;
+    const { startTime, endTime, offDay, lateTime, halfLeave } =
+      req.body as AttendanceRule;
 
-    if (!configureType || !configureTime) {
-      res.status(400).json({ message: "All fields are required" });
-      return;
-    }
-
-    await pool.query(
-      "UPDATE configuretime SET configureType = ?, configureTime = ? WHERE id = ?",
-      [configureType, configureTime, id]
+    const [result] = await pool.query(
+      `UPDATE attendance_rules 
+       SET startTime = ?, endTime = ?, offDay = ?, lateTime = ?, halfLeave = ? 
+       WHERE id = ?`,
+      [startTime, endTime, offDay, lateTime, halfLeave, id],
     );
 
-    res.json({ message: "Config Time updated" });
-    return;
+    res.json({ message: "Attendance rule updated successfully" });
   } catch (error) {
-    console.error(error);
+    console.error("Update Error:", error);
     res.status(500).json({ message: "Server Error" });
-    return;
   }
 };
 
 export const deleteConfigTime = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     const { id } = req.params;
-
-    await pool.query("DELETE FROM configuretime WHERE id = ?", [id]);
-
-    res.json({ message: "Config Time deleted" });
-    return;
+    await pool.query("DELETE FROM attendance_rules WHERE id = ?", [id]);
+    res.json({ message: "Attendance rule deleted" });
   } catch (error) {
-    console.error(error);
+    console.error("Delete Error:", error);
     res.status(500).json({ message: "Server Error" });
-    return;
   }
 };

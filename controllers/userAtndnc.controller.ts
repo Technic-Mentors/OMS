@@ -60,7 +60,7 @@ export const getAllAttendances = async (req: Request, res: Response) => {
   try {
     const [rows] = await pool.query<RowDataPacket[]>(
       `SELECT a.id, a.userId, u.name, u.role, a.date, a.clockIn, a.clockOut,
-              a.attendanceStatus, a.leaveApprovalStatus, a.leaveReason,
+              a.attendanceStatus, a.leaveStatus, a.leaveReason,
               a.workingHours, DAYNAME(a.date) AS day, a.status
        FROM attendance a
        JOIN login u ON a.userId = u.id
@@ -89,7 +89,7 @@ export const getMyAttendances = async (
 
     const [rows] = await pool.query<RowDataPacket[]>(
       `SELECT a.id, a.userId, a.date, a.clockIn, a.clockOut,
-              a.attendanceStatus, a.leaveApprovalStatus, a.leaveReason,
+              a.attendanceStatus, a.leaveStatus, a.leaveReason,
               a.workingHours, DAYNAME(a.date) AS day, a.status
        FROM attendance a
        WHERE a.userId = ?

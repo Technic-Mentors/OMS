@@ -6,6 +6,7 @@ import {
   getEmployeeLifeLine,
   updatePromotion,
   deletePromotion,
+  getEmployeePromotionHistory
 } from "../controllers/promotion.controller";
 import { authenticateToken, isAdmin } from "../middleware/middleware";
 
@@ -13,6 +14,7 @@ const router = Router();
 
 router.get("/admin/getPromotions", authenticateToken, isAdmin, getAllPromotions);
 router.get("/user/getMyPromotions", authenticateToken, getMyPromotions);
+router.get("/admin/getPromotionHistory/:employeeId", authenticateToken, isAdmin, getEmployeePromotionHistory);
 router.post("/admin/addPromotion", authenticateToken, isAdmin, addPromotion);
 router.post("/user/addPromotion", authenticateToken, addPromotion);
 router.put("/admin/updatePromotion/:id", authenticateToken, isAdmin, updatePromotion);

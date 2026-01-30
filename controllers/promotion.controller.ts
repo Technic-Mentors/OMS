@@ -5,7 +5,7 @@ import { AuthenticatedRequest } from "../middleware/middleware";
 export const getAllPromotions = async (_: Request, res: Response) => {
   try {
     const [rows] = await pool.query(
-      "SELECT * FROM promotion WHERE is_deleted = 0 ORDER BY id DESC"
+      "SELECT * FROM promotion WHERE is_deleted = 0 ORDER BY id DESC",
     );
     res.json(rows);
   } catch {
@@ -15,7 +15,7 @@ export const getAllPromotions = async (_: Request, res: Response) => {
 
 export const getMyPromotions = async (
   req: AuthenticatedRequest,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     if (!req.user) {
@@ -27,7 +27,7 @@ export const getMyPromotions = async (
       `SELECT * FROM promotion 
        WHERE employee_id = ? AND is_deleted = 0
        ORDER BY id DESC`,
-      [req.user.id]
+      [req.user.id],
     );
 
     res.json(rows);
@@ -59,9 +59,22 @@ export const getEmployeeLifeLine = async (req: Request, res: Response) => {
   }
 };
 
+export const getEmployeePromotionHistory = async (req: Request, res: Response) => {
+  try {
+    const { employeeId } = req.params;
+    const [rows] = await pool.query(
+      "SELECT * FROM promotion WHERE employee_id = ? AND is_deleted = 0 ORDER BY date DESC",
+      [employeeId]
+    );
+    res.json(rows);
+  } catch (error) {
+    res.status(500).json({ message: "Failed to fetch history" });
+  }
+};
+
 export const addPromotion = async (
   req: AuthenticatedRequest,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     if (!req.user) {
@@ -76,7 +89,7 @@ export const addPromotion = async (
 
     const [userRows]: any = await pool.query(
       "SELECT name FROM login WHERE id = ?",
-      [employee_id]
+      [employee_id],
     );
 
     if (!userRows.length) {
@@ -95,7 +108,7 @@ export const addPromotion = async (
         requested_designation,
         note,
         date,
-      ]
+      ],
     );
 
     res.status(201).json({ message: "Promotion request added" });
@@ -104,9 +117,10 @@ export const addPromotion = async (
   }
 };
 
+
 export const updatePromotion = async (
   req: AuthenticatedRequest,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     if (!req.user) {
@@ -125,7 +139,7 @@ export const updatePromotion = async (
 
     const [existing]: any = await pool.query(
       "SELECT * FROM promotion WHERE id = ? AND is_deleted = 0",
-      [promotionId]
+      [promotionId],
     );
 
     if (!existing.length) {
@@ -138,6 +152,7 @@ export const updatePromotion = async (
       return;
     }
 
+    // 1. Update the promotion request status
     await pool.query(
       `UPDATE promotion SET
         current_designation = ?,
@@ -153,37 +168,55 @@ export const updatePromotion = async (
         date,
         approvalStatus,
         promotionId,
-      ]
+      ],
     );
 
+    // 2. Handle Employee LifeLine update if ACCEPTED
     if (approvalStatus === "ACCEPTED") {
       const promotion = existing[0];
+      const empId = promotion.employee_id;
 
-      const [userRows]: any = await pool.query(
-        `SELECT name, email, contact FROM login WHERE id = ?`,
-        [promotion.employee_id]
+      // Check if employee already exists in lifeline
+      const [lifelineExists]: any = await pool.query(
+        "SELECT id FROM employee_lifeline WHERE employee_id = ?",
+        [empId],
       );
 
-      if (userRows.length) {
-        const user = userRows[0];
-
+      if (lifelineExists.length > 0) {
+        // UPDATE existing entry
         await pool.query(
-          `INSERT INTO employee_lifeline
-           (employee_id, employee_name, email, contact, position, date)
-           VALUES (?, ?, ?, ?, ?, ?)`,
-          [
-            promotion.employee_id,
-            user.name,
-            user.email,
-            user.contact,
-            requested_designation,
-            date,
-          ]
+          `UPDATE employee_lifeline 
+           SET position = ?, date = ? 
+           WHERE employee_id = ?`,
+          [requested_designation, date, empId],
         );
+      } else {
+        // Fallback: INSERT if no record exists yet
+        const [userRows]: any = await pool.query(
+          `SELECT name, email, contact FROM login WHERE id = ?`,
+          [empId],
+        );
+
+        if (userRows.length) {
+          const user = userRows[0];
+          await pool.query(
+            `INSERT INTO employee_lifeline
+             (employee_id, employee_name, email, contact, position, date)
+             VALUES (?, ?, ?, ?, ?, ?)`,
+            [
+              empId,
+              user.name,
+              user.email,
+              user.contact,
+              requested_designation,
+              date,
+            ],
+          );
+        }
       }
     }
 
-    res.json({ message: "Promotion updated successfully" });
+    res.json({ message: "Promotion updated successfully and lifeline synced" });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Failed to update promotion" });
@@ -192,7 +225,7 @@ export const updatePromotion = async (
 
 export const deletePromotion = async (
   req: AuthenticatedRequest,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     if (!req.user) {
@@ -204,7 +237,7 @@ export const deletePromotion = async (
 
     const [existing]: any = await pool.query(
       "SELECT * FROM promotion WHERE id = ? AND is_deleted = 0",
-      [promotionId]
+      [promotionId],
     );
 
     if (!existing.length) {

@@ -143,43 +143,46 @@ export const updateLeave = async (
       [date, leaveStatus, leaveSubject, leaveReason, leaveId]
     );
 
-    if (leaveStatus === "Approved") {
-      const [leaveRows] = await pool.query<RowDataPacket[]>(
-        `SELECT userId, date, leaveReason FROM leaves WHERE id = ?`,
-        [leaveId]
+    const [leaveRows] = await pool.query<RowDataPacket[]>(
+      `SELECT userId FROM leaves WHERE id = ?`,
+      [leaveId]
+    );
+
+    if (leaveRows.length > 0) {
+      const { userId } = leaveRows[0];
+
+      const [attendanceRows] = await pool.query<RowDataPacket[]>(
+        `SELECT id FROM attendance WHERE userId = ? AND date = ?`,
+        [userId, date]
       );
 
-      if (leaveRows.length > 0) {
-        const { userId, date, leaveReason } = leaveRows[0];
-
-        const [attendanceRows] = await pool.query<RowDataPacket[]>(
-          `SELECT id FROM attendance
-           WHERE userId = ? AND date = ? AND status = 'Y'`,
-          [userId, date]
+      if (attendanceRows.length > 0) {
+        await pool.query(
+          `UPDATE attendance
+           SET attendanceStatus = ?, 
+               leaveStatus = ?,
+               leaveReason = ?
+           WHERE userId = ? AND date = ?`,
+          [
+            leaveStatus === "Approved" ? "Leave" : "Absent", 
+            leaveStatus, 
+            leaveReason, 
+            userId, 
+            date
+          ]
         );
-
-        if (attendanceRows.length > 0) {
-          await pool.query(
-            `UPDATE attendance
-             SET attendanceStatus = 'Leave',
-                 leaveApprovalStatus = 'Approved',
-                 leaveReason = ?
-             WHERE userId = ? AND date = ?`,
-            [leaveReason, userId, date]
-          );
-        } else {
-          await pool.query(
-            `INSERT INTO attendance
-             (userId, date, attendanceStatus, leaveApprovalStatus, leaveReason, status)
-             VALUES (?, ?, 'Leave', 'Approved', ?, 'Y')`,
-            [userId, date, leaveReason]
-          );
-        }
+      } else if (leaveStatus === "Approved") {
+        await pool.query(
+          `INSERT INTO attendance
+           (userId, date, attendanceStatus, leaveStatus, leaveReason, status)
+           VALUES (?, ?, 'Leave', 'Approved', ?, 'Y')`,
+          [userId, date, leaveReason]
+        );
       }
     }
 
     res.status(200).json({
-      message: "Leave approved and attendance synced successfully",
+      message: "Leave updated and attendance status synced",
     });
   } catch (error) {
     console.error(error);

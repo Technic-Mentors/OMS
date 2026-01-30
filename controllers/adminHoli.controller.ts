@@ -3,70 +3,87 @@ import pool from "../database/db";
 
 export const getHolidays = async (req: Request, res: Response) => {
   try {
-    const { holiday, date } = req.body;
-
     const query = `
-      SELECT id, holiday, date, holidayStatus
+      SELECT id, holiday, fromDate, toDate, holidayStatus
       FROM holidays
       WHERE holidayStatus = 'Y'
-      ORDER BY date ASC
+      ORDER BY fromDate ASC
     `;
 
-    const [rows] = await pool.query(query, [holiday, date]);
+    const [rows] = await pool.query(query);
     res.status(200).json(rows);
   } catch (error) {
-    console.log(error);
+    console.error("Fetch Error:", error);
     res.status(500).json({ message: "Failed to fetch holidays" });
   }
 };
 
-export const addHoliday = async (req: Request, res: Response) => {
+export const addHoliday = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
   try {
-    const { holiday, date } = req.body;
+    const { holiday, fromDate, toDate } = req.body;
+
+    if (!holiday || !fromDate || !toDate) {
+      res.status(400).json({ message: "All fields are required" });
+    }
 
     await pool.query(
-      `INSERT INTO holidays (holiday, date, holidayStatus)
-       VALUES (?, ?, 'Y')`,
-      [holiday, date]
+      `INSERT INTO holidays (holiday, fromDate, toDate, holidayStatus)
+       VALUES (?, ?, ?, 'Y')`,
+      [holiday, fromDate, toDate],
     );
 
     res.status(201).json({ message: "Holiday added successfully" });
   } catch (error) {
+    console.error("Add Error:", error);
     res.status(500).json({ message: "Failed to add holiday" });
   }
 };
 
-export const updateHoliday = async (req: Request, res: Response) => {
+export const updateHoliday = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
   try {
-    const { holiday, date } = req.body;
+    const { holiday, fromDate, toDate } = req.body;
     const holidayId = req.params.id;
 
-    await pool.query(`UPDATE holidays SET holiday = ?, date = ? WHERE id = ?`, [
-      holiday,
-      date,
-      holidayId,
-    ]);
+    const [result]: any = await pool.query(
+      `UPDATE holidays SET holiday = ?, fromDate = ?, toDate = ? WHERE id = ?`,
+      [holiday, fromDate, toDate, holidayId],
+    );
+
+    if (result.affectedRows === 0) {
+      res.status(404).json({ message: "Holiday not found" });
+    }
 
     res.status(200).json({ message: "Holiday updated successfully" });
   } catch (error) {
+    console.error("Update Error:", error);
     res.status(500).json({ message: "Failed to update holiday" });
   }
 };
 
-export const deleteHoliday = async (req: Request, res: Response) => {
+export const deleteHoliday = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
   try {
     const holidayId = req.params.id;
 
-    const query = `
-      DELETE FROM holidays
-      WHERE id = ?
-    `;
+    const query = `DELETE FROM holidays WHERE id = ?`;
 
-    await pool.query(query, [holidayId]);
+    const [result]: any = await pool.query(query, [holidayId]);
+
+    if (result.affectedRows === 0) {
+      res.status(404).json({ message: "Holiday not found" });
+    }
 
     res.status(200).json({ message: "Holiday deleted successfully" });
   } catch (error) {
-    console.log(error);
+    console.error("Delete Error:", error);
     res.status(500).json({ message: "Failed to delete holiday" });
   }
 };
