@@ -79,7 +79,7 @@ export const getCustomerAccountsByCustomerId = async (
 
   try {
     const [rows]: any = await pool.query(
-      `SELECT id, refNo, debit, credit
+      `SELECT id, refNo, debit, credit, paymentMethod, paymentDate
        FROM customer_accounts
        WHERE customerId = ?
        ORDER BY createdAt ASC`,

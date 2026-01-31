@@ -9,7 +9,7 @@ export const getSupplierAcc = async (req: Request, res: Response) => {
     const [rows] = await pool.query(
       `SELECT supplierId, supplierName, supplierContact, supplierAddress
        FROM suppliers
-       ORDER BY supplierId DESC`
+       ORDER BY supplierId DESC`,
     );
 
     res.json(rows);
@@ -25,7 +25,7 @@ export const getSuppliers = async (req: Request, res: Response) => {
   try {
     const [rows] = await pool.query(
       `SELECT supplierId, supplierName, supplierContact, supplierAddress
-       FROM suppliers`
+       FROM suppliers`,
     );
 
     res.json({ data: rows });
@@ -39,13 +39,7 @@ export const getSuppliers = async (req: Request, res: Response) => {
  * 🔥 refNo SAME idea as customer account
  */
 export const addSupplierAcc = async (req: Request, res: Response) => {
-  const {
-    supplierId,
-    debit,
-    credit,
-    paymentMethod,
-    paymentDate,
-  } = req.body;
+  const { supplierId, debit, credit, paymentMethod, paymentDate } = req.body;
 
   try {
     // ✅ SAME refNo logic as customer accounts
@@ -55,14 +49,7 @@ export const addSupplierAcc = async (req: Request, res: Response) => {
       `INSERT INTO supplier_accounts
       (supplierId, refNo, debit, credit, paymentMethod, paymentDate)
       VALUES (?, ?, ?, ?, ?, ?)`,
-      [
-        supplierId,
-        refNo,
-        debit || 0,
-        credit || 0,
-        paymentMethod,
-        paymentDate,
-      ]
+      [supplierId, refNo, debit || 0, credit || 0, paymentMethod, paymentDate],
     );
 
     res.status(201).json({ message: "Supplier account added" });
@@ -76,7 +63,7 @@ export const addSupplierAcc = async (req: Request, res: Response) => {
  */
 export const getSupplierById = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   const { id } = req.params;
 
@@ -85,7 +72,7 @@ export const getSupplierById = async (
       `SELECT supplierName, supplierContact, supplierAddress
        FROM suppliers
        WHERE supplierId = ?`,
-      [id]
+      [id],
     );
 
     if (!rows.length) {
@@ -102,19 +89,16 @@ export const getSupplierById = async (
 /**
  * GET supplier ledger by supplierId
  */
-export const getSupplierAccounts = async (
-  req: Request,
-  res: Response
-) => {
+export const getSupplierAccounts = async (req: Request, res: Response) => {
   const { supplierId } = req.params;
 
   try {
     const [rows]: any = await pool.query(
-      `SELECT id, refNo, debit, credit
+      `SELECT id, refNo, debit, credit,paymentMethod, paymentDate
        FROM supplier_accounts
        WHERE supplierId = ?
        ORDER BY createdAt ASC`,
-      [supplierId]
+      [supplierId],
     );
 
     const formatted = rows.map((row: any) => ({
