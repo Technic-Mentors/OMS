@@ -6,7 +6,7 @@ import {
   addAttendance,
   updateAttendance,
   deleteAttendance,
-} from "../controllers/userAtndnc.controller";
+} from "../controllers/userAttendance.controller";
 
 import { authenticateToken, isAdmin } from "../middleware/middleware";
 

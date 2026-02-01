@@ -7,7 +7,7 @@ import {
   deleteProgress,
   getProjectsByEmployee,
   getMyAssignedProjects,
-} from "../controllers/adminprogress.controller";
+} from "../controllers/progress.controller";
 import { authenticateToken, isAdmin } from "../middleware/middleware";
 
 const router = Router();

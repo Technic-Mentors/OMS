@@ -5,7 +5,7 @@ import {
   addAssignProject,
   editAssignProject,
   deleteAssignProject,
-} from "../controllers/aspro.controller";
+} from "../controllers/assignproject.controller";
 
 import { authenticateToken } from "../middleware/middleware";
 

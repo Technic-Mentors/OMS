@@ -5,10 +5,10 @@ import {
   addLeave,
   updateLeave,
   getAllUsers,
-  deleteLeave
-} from "../controllers/adminLeave.controller";
+  deleteLeave,
+} from "../controllers/Leave.controller";
 
-import type { RequestWithUser } from "../controllers/adminLeave.controller";
+import type { RequestWithUser } from "../controllers/Leave.controller";
 
 import { authenticateToken, isAdmin } from "../middleware/middleware";
 
@@ -19,8 +19,8 @@ const wrapAsync =
     fn: (
       req: RequestWithUser,
       res: Response,
-      next?: NextFunction
-    ) => Promise<any>
+      next?: NextFunction,
+    ) => Promise<any>,
   ) =>
   (req: Request, res: Response, next: NextFunction) =>
     fn(req as RequestWithUser, res, next).catch(next);
@@ -29,14 +29,21 @@ router.get(
   "/admin/getUsersLeaves",
   authenticateToken,
   isAdmin,
-  wrapAsync(getUsersLeaves)
+  wrapAsync(getUsersLeaves),
 );
 router.get("/admin/getUsers", wrapAsync(getAllUsers));
 router.get("/user/getMyLeaves", authenticateToken, wrapAsync(getMyLeaves));
 router.post("/addLeave", authenticateToken, wrapAsync(addLeave));
 router.put("/admin/updateLeave/:id", wrapAsync(updateLeave));
-router.delete("/admin/deleteLeave/:id",authenticateToken, wrapAsync(deleteLeave));
-router.delete("/user/deleteLeave/:id",authenticateToken, wrapAsync(deleteLeave));
-
+router.delete(
+  "/admin/deleteLeave/:id",
+  authenticateToken,
+  wrapAsync(deleteLeave),
+);
+router.delete(
+  "/user/deleteLeave/:id",
+  authenticateToken,
+  wrapAsync(deleteLeave),
+);
 
 export default router;

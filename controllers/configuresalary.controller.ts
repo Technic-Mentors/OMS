@@ -1,46 +1,6 @@
 import { Request, Response } from "express";
 import pool from "../database/db";
 
-// export const getSalaries = async (req: Request, res: Response) => {
-//   try {
-//     const [rows] = await pool.query(
-//       `
-//       SELECT 
-//     c.id,
-//     c.employee_id,
-//     ANY_VALUE(e.employee_name) AS employee_name
-//     c.salary_amount,
-//     c.emp_of_mon_allowance,
-//     c.transport_allowance,
-//     c.medical_allowance,
-//     c.total_salary,
-
-//     IFNULL(SUM(l.deduction), 0) AS total_loan_deduction,
-
-//     (c.total_salary - IFNULL(SUM(l.deduction), 0)) AS net_salary,
-
-//     c.config_date
-//   FROM configempsalaries c
-//   LEFT JOIN employee_lifeline e 
-//     ON c.employee_id = e.employee_id
-//   LEFT JOIN loan l
-//     ON l.employee_id = c.employee_id
-//   WHERE c.status = 'ACTIVE'
-//   GROUP BY c.id
-//   ORDER BY c.config_date DESC
-//       `
-//     );
-
-//     res.json({
-//       salaries: rows,
-//       total: (rows as any).length,
-//     });
-//   } catch (error) {
-//     console.error(error);
-//     res.status(500).json({ message: "Error fetching salaries" });
-//   }
-// };
-
 export const getSalaries = async (req: Request, res: Response) => {
   try {
     const [rows] = await pool.query(
@@ -74,7 +34,7 @@ export const getSalaries = async (req: Request, res: Response) => {
         c.total_salary,
         c.config_date
       ORDER BY c.config_date DESC
-      `
+      `,
     );
 
     res.json({
@@ -87,17 +47,15 @@ export const getSalaries = async (req: Request, res: Response) => {
   }
 };
 
-
-
 export const getSalaryById = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     const { id } = req.params;
     const [rows] = await pool.query(
       `SELECT * FROM configempsalaries WHERE id = ? AND status='ACTIVE'`,
-      [id]
+      [id],
     );
 
     if ((rows as any).length === 0)
@@ -134,7 +92,7 @@ export const addSalary = async (req: Request, res: Response) => {
         medical_allowance,
         total_salary,
         config_date,
-      ]
+      ],
     );
 
     res
@@ -170,7 +128,7 @@ export const updateSalary = async (req: Request, res: Response) => {
         total_salary,
         config_date,
         id,
-      ]
+      ],
     );
 
     res.json({ message: "Salary updated" });
@@ -185,7 +143,7 @@ export const deleteSalary = async (req: Request, res: Response) => {
     const { id } = req.params;
     await pool.query(
       `UPDATE configempsalaries SET status='INACTIVE' WHERE id=?`,
-      [id]
+      [id],
     );
     res.json({ message: "Salary deleted" });
   } catch (error) {

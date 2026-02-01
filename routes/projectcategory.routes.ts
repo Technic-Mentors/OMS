@@ -4,7 +4,7 @@ import {
   addCategory,
   updateCategory,
   deleteCategory,
-} from "../controllers/procat.controller";
+} from "../controllers/projectcategory.controller";
 
 const router = Router();
 

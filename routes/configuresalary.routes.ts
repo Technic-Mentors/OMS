@@ -5,7 +5,7 @@ import {
   addSalary,
   updateSalary,
   deleteSalary,
-} from "../controllers/configsal.controller";
+} from "../controllers/configuresalary.controller";
 
 const router = express.Router();
 

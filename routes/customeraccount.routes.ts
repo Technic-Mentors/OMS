@@ -5,7 +5,7 @@ import {
   addCustomerAccount,
   getCustomerById,
   getCustomerAccountsByCustomerId,
-} from "../controllers/customeracc.controller";
+} from "../controllers/customeraccount.controller";
 
 const router = Router();
 

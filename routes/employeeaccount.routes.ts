@@ -3,7 +3,7 @@ import {
   addEmployeeAccount,
   getEmployeeAccount,
   getEmployeeAccountForUser
-} from "../controllers/empaccount.controller";
+} from "../controllers/employeeaccount.controller";
 import { authenticateToken, isAdmin } from "../middleware/middleware";
 
 const router: Router = Router();

@@ -5,7 +5,7 @@ import {
   updateCustomer,
   deleteCustomer,
   getSingleCustomer,
-} from "../controllers/adminCstmr.controller";
+} from "../controllers/customer.controller";
 
 const router = Router();
 

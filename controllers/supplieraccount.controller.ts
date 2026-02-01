@@ -1,9 +1,7 @@
 import { Request, Response } from "express";
 import pool from "../database/db";
 
-/**
- * GET supplier list (SupplierAccount.tsx)
- */
+
 export const getSupplierAcc = async (req: Request, res: Response) => {
   try {
     const [rows] = await pool.query(
@@ -18,9 +16,7 @@ export const getSupplierAcc = async (req: Request, res: Response) => {
   }
 };
 
-/**
- * GET all suppliers (AddSupplierAcc.tsx dropdown)
- */
+
 export const getSuppliers = async (req: Request, res: Response) => {
   try {
     const [rows] = await pool.query(
@@ -34,15 +30,11 @@ export const getSuppliers = async (req: Request, res: Response) => {
   }
 };
 
-/**
- * ADD supplier account (ledger entry)
- * 🔥 refNo SAME idea as customer account
- */
+
 export const addSupplierAcc = async (req: Request, res: Response) => {
   const { supplierId, debit, credit, paymentMethod, paymentDate } = req.body;
 
   try {
-    // ✅ SAME refNo logic as customer accounts
     const refNo = `${Date.now()}`;
 
     await pool.query(
@@ -58,9 +50,7 @@ export const addSupplierAcc = async (req: Request, res: Response) => {
   }
 };
 
-/**
- * GET supplier by ID (ViewSupplierAcc.tsx header)
- */
+
 export const getSupplierById = async (
   req: Request,
   res: Response,
@@ -86,9 +76,7 @@ export const getSupplierById = async (
   }
 };
 
-/**
- * GET supplier ledger by supplierId
- */
+
 export const getSupplierAccounts = async (req: Request, res: Response) => {
   const { supplierId } = req.params;
 

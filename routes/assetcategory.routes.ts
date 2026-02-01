@@ -5,7 +5,7 @@ import {
   addCategory,
   updateCategory,
   deleteCategory,
-} from "../controllers/astcat.controller";
+} from "../controllers/assetcategory.controller";
 
 const router = Router();
 

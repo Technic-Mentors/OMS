@@ -6,7 +6,7 @@ import {
   updateExpense,
   deleteExpense,
   getExpenseById,
-} from "../controllers/adminexp.controller";
+} from "../controllers/expenses.controller";
 import { authenticateToken } from "../middleware/middleware";
 
 const router = Router();

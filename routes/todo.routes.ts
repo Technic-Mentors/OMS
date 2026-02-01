@@ -5,7 +5,7 @@ import {
   addTodo,
   updateTodo,
   deleteTodo,
-} from "../controllers/admintodo.controller";
+} from "../controllers/todo.controller";
 
 import { authenticateToken, isAdmin } from "../middleware/middleware";
 

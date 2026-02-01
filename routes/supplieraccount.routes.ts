@@ -5,7 +5,7 @@ import {
   getSuppliers,
   getSupplierById,
   getSupplierAccounts,
-} from "../controllers/supplieracc.controller";
+} from "../controllers/supplieraccount.controller";
 
 import { authenticateToken } from "../middleware/middleware";
 

@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getAttendance, markAttendance } from "../controllers/adminAtndnc.controller";
+import { getAttendance, markAttendance } from "../controllers/markAttendance.controller";
 import { authenticateToken } from "../middleware/middleware";
 
 const router = Router();

@@ -5,7 +5,7 @@ import {
   getEmpll,
   updateEmpll,
   deleteEmpll,
-} from "../controllers/adminempll.controller";
+} from "../controllers/employeelifeline.controller";
 import { authenticateToken } from "../middleware/middleware";
 
 const router = Router();

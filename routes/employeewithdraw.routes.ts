@@ -3,7 +3,7 @@ import {
   withdrawEmployee,
   getWithdrawnEmployees,
   reActiveEmployee,
-} from "../controllers/empwithdraw.controller";
+} from "../controllers/employeewithdraw.controller";
 
 const router = Router();
 

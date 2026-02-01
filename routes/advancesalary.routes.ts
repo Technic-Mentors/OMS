@@ -5,7 +5,7 @@ import {
   createAdvanceSalary,
   updateAdvanceSalary,
   deleteAdvanceSalary,
-} from "../controllers/advsalary.controller";
+} from "../controllers/advancesalary.controller";
 import { authenticateToken, isAdmin } from "../middleware/middleware";
 
 

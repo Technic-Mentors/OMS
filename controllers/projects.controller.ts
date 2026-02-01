@@ -127,14 +127,12 @@ export const updateProject = async (
   }
 };
 
-// projects.controller.ts
 
 export const updateCompletionStatus = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
     const { completionStatus } = req.body;
 
-    // Validate if the status is one of your allowed types
     const allowedStatuses = ["New", "Working", "Complete"];
     if (!allowedStatuses.includes(completionStatus)) {
       res.status(400).json({ message: "Invalid completion status" });

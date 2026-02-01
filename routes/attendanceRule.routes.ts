@@ -4,7 +4,7 @@ import {
   addConfigTime,
   updateConfigTime,
   deleteConfigTime,
-} from "../controllers/adminConfig.controller";
+} from "../controllers/attendanceRule.controller";
 
 const router = Router();
 

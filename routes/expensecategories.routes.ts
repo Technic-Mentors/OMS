@@ -4,7 +4,7 @@ import {
   addExpenseCategory,
   updateExpenseCategory,
   deleteExpenseCategory,
-} from "../controllers/adminexpcat.controller";
+} from "../controllers/expensecategories.controller";
 
 const router = Router();
 

@@ -152,7 +152,6 @@ export const updatePromotion = async (
       return;
     }
 
-    // 1. Update the promotion request status
     await pool.query(
       `UPDATE promotion SET
         current_designation = ?,
@@ -171,19 +170,16 @@ export const updatePromotion = async (
       ],
     );
 
-    // 2. Handle Employee LifeLine update if ACCEPTED
     if (approvalStatus === "ACCEPTED") {
       const promotion = existing[0];
       const empId = promotion.employee_id;
 
-      // Check if employee already exists in lifeline
       const [lifelineExists]: any = await pool.query(
         "SELECT id FROM employee_lifeline WHERE employee_id = ?",
         [empId],
       );
 
       if (lifelineExists.length > 0) {
-        // UPDATE existing entry
         await pool.query(
           `UPDATE employee_lifeline 
            SET position = ?, date = ? 
@@ -191,7 +187,6 @@ export const updatePromotion = async (
           [requested_designation, date, empId],
         );
       } else {
-        // Fallback: INSERT if no record exists yet
         const [userRows]: any = await pool.query(
           `SELECT name, email, contact FROM login WHERE id = ?`,
           [empId],
