@@ -2,9 +2,9 @@ import { Request, Response } from "express";
 import pool from "../database/db";
 import { RowDataPacket, ResultSetHeader } from "mysql2";
 
+
 const toMySQLDate = (dateStr: string | null) => {
   if (!dateStr) return null;
-
   const date = new Date(dateStr);
   if (isNaN(date.getTime())) return null;
 
@@ -27,28 +27,25 @@ const calculateWorkingHours = (clockIn: string, clockOut: string) => {
   const hours = Math.floor(diffMs / (1000 * 60 * 60));
   const minutes = Math.floor((diffMs / (1000 * 60)) % 60);
 
-  return `${hours}:${minutes.toString().padStart(2, "0")}`;
+  return `${hours.toString().padStart(2, "0")}:${minutes
+    .toString()
+    .padStart(2, "0")}`;
 };
 
-const getConfigTimes = async () => {
+
+const getAttendanceRule = async () => {
   const [rows]: any = await pool.query(
-    "SELECT configureType, configureTime FROM configuretime WHERE status='Y'",
+    "SELECT * FROM attendance_rules ORDER BY id DESC LIMIT 1",
   );
-
-  const config: { [key: string]: string } = {};
-  rows.forEach((row: any) => {
-    config[row.configureType] = row.configureTime;
-  });
-
-  return config;
+  return rows.length ? rows[0] : null;
 };
+
 
 export const getUsers = async (req: Request, res: Response): Promise<void> => {
   try {
     const [rows] = await pool.query<RowDataPacket[]>(
       "SELECT id, name, role FROM login WHERE status = 'Y'",
     );
-
     res.json({ users: rows });
   } catch (error) {
     console.error(error);
@@ -81,20 +78,18 @@ export const getMyAttendances = async (
 ): Promise<void> => {
   try {
     const userId = (req as any).user?.id;
-
     if (!userId) {
       res.status(401).json({ message: "Unauthorized" });
       return;
     }
 
     const [rows] = await pool.query<RowDataPacket[]>(
-      `SELECT a.id, a.userId, a.date, a.clockIn, a.clockOut,
-              a.attendanceStatus, a.leaveStatus, a.leaveReason,
-              a.workingHours, DAYNAME(a.date) AS day, a.status
-       FROM attendance a
-       WHERE a.userId = ?
-         AND a.status = 'Y'
-       ORDER BY a.date DESC`,
+      `SELECT id, userId, date, clockIn, clockOut,
+              attendanceStatus, leaveStatus, leaveReason,
+              workingHours, DAYNAME(date) AS day, status
+       FROM attendance
+       WHERE userId = ? AND status = 'Y'
+       ORDER BY date DESC`,
       [userId],
     );
 
@@ -115,16 +110,17 @@ export const addAttendance = async (
   try {
     const formattedDate = toMySQLDate(date);
     const workingHours = calculateWorkingHours(clockIn, clockOut);
-
-    const configTimes = await getConfigTimes();
+    const rule = await getAttendanceRule();
 
     let attendanceStatus = "Present";
 
-    if (configTimes["Late"] && clockIn >= configTimes["Late"]) {
-      attendanceStatus = "Late";
-    }
-    if (configTimes["Absent"] && clockIn >= configTimes["Absent"]) {
-      attendanceStatus = "Absent";
+    if (rule) {
+      if (rule.lateTime && clockIn >= rule.lateTime) {
+        attendanceStatus = "Late";
+      }
+      if (rule.halfLeave && clockIn >= rule.halfLeave) {
+        attendanceStatus = "Absent";
+      }
     }
 
     const [result] = await pool.query<ResultSetHeader>(
@@ -157,20 +153,22 @@ export const updateAttendance = async (
   res: Response,
 ): Promise<void> => {
   const { id } = req.params;
-  const { userId, date, clockIn, clockOut, attendanceStatus } = req.body;
+  const { userId, date, clockIn, clockOut } = req.body;
 
   try {
     const formattedDate = toMySQLDate(date);
     const workingHours = calculateWorkingHours(clockIn, clockOut);
-
-    const configTimes = await getConfigTimes();
+    const rule = await getAttendanceRule();
 
     let attendanceStatus = "Present";
-    if (configTimes["Late"] && clockIn >= configTimes["Late"]) {
-      attendanceStatus = "Late";
-    }
-    if (configTimes["Absent"] && clockIn >= configTimes["Absent"]) {
-      attendanceStatus = "Absent";
+
+    if (rule) {
+      if (rule.lateTime && clockIn >= rule.lateTime) {
+        attendanceStatus = "Late";
+      }
+      if (rule.halfLeave && clockIn >= rule.halfLeave) {
+        attendanceStatus = "Absent";
+      }
     }
 
     await pool.query<ResultSetHeader>(
@@ -204,7 +202,7 @@ export const deleteAttendance = async (
 
   try {
     await pool.query<ResultSetHeader>(
-      `UPDATE attendance SET status = 'N' WHERE id = ?`,
+      "UPDATE attendance SET status = 'N' WHERE id = ?",
       [id],
     );
 

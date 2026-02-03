@@ -122,7 +122,7 @@ export const addTodo = async (
       normalizeDate(endDate),
       normalizeDate(deadline),
       todoStatus ?? "Y",
-      completionStatus ?? "Open",
+      completionStatus ?? "Pending",
     ]);
 
     res.status(201).json({ message: "Todo added successfully" });

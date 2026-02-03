@@ -1,11 +1,13 @@
 import { Request, Response } from "express";
 import pool from "../database/db";
-import bcrypt from 'bcryptjs';
+import bcrypt from "bcryptjs";
 
 const formattedDate = new Date().toLocaleDateString("sv-SE");
 
-
-export const getAllUsers = async (req: Request, res: Response): Promise<void> => {
+export const getAllUsers = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
   try {
     const [rows]: any = await pool.query("SELECT * FROM login");
     res.json({ users: rows });
@@ -17,7 +19,8 @@ export const getAllUsers = async (req: Request, res: Response): Promise<void> =>
 
 export const addUser = async (req: Request, res: Response): Promise<void> => {
   try {
-    let { name, email, password, contact, cnic, address, date, role } = req.body;
+    let { name, email, password, contact, cnic, address, date, role } =
+      req.body;
 
     if (!name || !email || !password || !cnic || !role) {
       res.status(400).json({ message: "Missing required fields" });
@@ -27,8 +30,10 @@ export const addUser = async (req: Request, res: Response): Promise<void> => {
     name = name.charAt(0).toUpperCase() + name.slice(1);
     email = email.toLowerCase();
 
-    if (!email.endsWith("@gmail.com")) {
-      res.status(400).json({ message: "Email must end with @gmail.com" });
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if (!emailRegex.test(email)) {
+      res.status(400).json({ message: "Invalid email format" });
       return;
     }
 
@@ -38,18 +43,22 @@ export const addUser = async (req: Request, res: Response): Promise<void> => {
     }
 
     if (!/^\d{5}-\d{7}-\d{1}$/.test(cnic)) {
-      res.status(400).json({ message: "CNIC must be 13 digits in format 12345-6789012-3" });
+      res
+        .status(400)
+        .json({ message: "CNIC must be 13 digits in format 12345-6789012-3" });
       return;
     }
 
     if (password.length < 5) {
-      res.status(400).json({ message: "Password must be at least 5 characters" });
+      res
+        .status(400)
+        .json({ message: "Password must be at least 5 characters" });
       return;
     }
 
     const [existingUser]: any = await pool.query(
       "SELECT * FROM login WHERE LOWER(email) = LOWER(?)",
-      [email]
+      [email],
     );
 
     if (existingUser.length > 0) {
@@ -63,7 +72,16 @@ export const addUser = async (req: Request, res: Response): Promise<void> => {
       INSERT INTO login (name, email, password, contact, cnic, address, date, role)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `;
-    const values = [name, email, hashedPassword, contact, cnic, address, formattedDate, role];
+    const values = [
+      name,
+      email,
+      hashedPassword,
+      contact,
+      cnic,
+      address,
+      formattedDate,
+      role,
+    ];
 
     const [result]: any = await pool.query(query, values);
 
@@ -84,17 +102,23 @@ export const addUser = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
-export const updateUser = async (req: Request, res: Response): Promise<void> => {
+export const updateUser = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
   try {
     const userId = req.params.id;
-    let { name, email, contact, cnic, address, date, role, password } = req.body;
+    let { name, email, contact, cnic, address, date, role, password } =
+      req.body;
 
     if (!userId) {
       res.status(400).json({ message: "User ID is required" });
       return;
     }
 
-    const [user]: any = await pool.query("SELECT * FROM login WHERE id = ?", [userId]);
+    const [user]: any = await pool.query("SELECT * FROM login WHERE id = ?", [
+      userId,
+    ]);
     if (user.length === 0) {
       res.status(404).json({ message: "User not found" });
       return;
@@ -106,7 +130,9 @@ export const updateUser = async (req: Request, res: Response): Promise<void> => 
     const updates: any = { name, email, contact, cnic, address, date, role };
     if (password) {
       if (password.length < 5) {
-        res.status(400).json({ message: "Password must be at least 5 characters" });
+        res
+          .status(400)
+          .json({ message: "Password must be at least 5 characters" });
         return;
       }
       updates.password = await bcrypt.hash(password, 10);
@@ -143,7 +169,7 @@ export const deleteUser = async (req: Request, res: Response) => {
     const [result]: any = await pool.query(query, [id]);
 
     const [getActiveUsers]: any = await pool.query(
-      "SELECT * FROM login WHERE loginStatus = 'Y'"
+      "SELECT * FROM login WHERE loginStatus = 'Y'",
     );
 
     if (result.affectedRows > 0) {
