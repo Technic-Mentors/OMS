@@ -6,9 +6,9 @@ import {
   updateLeave,
   getAllUsers,
   deleteLeave,
-} from "../controllers/Leave.controller";
+} from "../controllers/leave.controller";
 
-import type { RequestWithUser } from "../controllers/Leave.controller";
+import type { RequestWithUser } from "../controllers/leave.controller";
 
 import { authenticateToken, isAdmin } from "../middleware/middleware";
 
