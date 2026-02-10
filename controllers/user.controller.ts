@@ -17,12 +17,212 @@ export const getAllUsers = async (
   }
 };
 
+// export const addUser = async (req: Request, res: Response): Promise<void> => {
+//   try {
+//     let { name, email, password, contact, cnic, address, date, role } =
+//       req.body;
+
+//     if (!name || !email || !password || !cnic || !contact || !role) {
+//       res.status(400).json({ message: "Missing required fields" });
+//       return;
+//     }
+
+//     name = name.charAt(0).toUpperCase() + name.slice(1);
+//     email = email.toLowerCase();
+
+//     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+//     if (!emailRegex.test(email)) {
+//       res.status(400).json({ message: "Invalid email format" });
+//       return;
+//     }
+
+//     if (!/^\d{11}$/.test(contact)) {
+//       res.status(400).json({ message: "Contact must be exactly 11 digits" });
+//       return;
+//     }
+
+//     if (!/^\d{5}-\d{7}-\d{1}$/.test(cnic)) {
+//       res
+//         .status(400)
+//         .json({ message: "CNIC must be in format 12345-6789012-3" });
+//       return;
+//     }
+
+//     if (password.length < 8 || password.length > 20) {
+//       res
+//         .status(400)
+//         .json({ message: "Password must be between 8 and 20 characters" });
+//       return;
+//     }
+
+//     // ===== Duplicate checks =====
+//     const [existingUsers]: any = await pool.query(
+//       `SELECT * FROM login WHERE LOWER(email) = LOWER(?) OR contact = ? OR cnic = ? OR LOWER(name) = LOWER(?)`,
+//       [email, contact, cnic, name],
+//     );
+
+//     const duplicates: string[] = [];
+//     if (
+//       existingUsers.some(
+//         (u: any) => u.name.toLowerCase() === name.toLowerCase(),
+//       )
+//     )
+//       duplicates.push("Name");
+//     if (
+//       existingUsers.some(
+//         (u: any) => u.email.toLowerCase() === email.toLowerCase(),
+//       )
+//     )
+//       duplicates.push("Email");
+//     if (existingUsers.some((u: any) => u.contact === contact))
+//       duplicates.push("Phone");
+//     if (existingUsers.some((u: any) => u.cnic === cnic))
+//       duplicates.push("CNIC");
+
+//     if (duplicates.length > 0) {
+//       const message =
+//         duplicates.length === 1
+//           ? `${duplicates[0]} already exists!`
+//           : `${duplicates.join(" and ")} already exist!`;
+//       res.status(400).json({ message });
+//       return;
+//     }
+
+//     const hashedPassword = await bcrypt.hash(password, 10);
+
+//     const query = `
+//       INSERT INTO login (name, email, password, contact, cnic, address, date, role)
+//       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+//     `;
+//     const values = [
+//       name,
+//       email,
+//       hashedPassword,
+//       contact,
+//       cnic,
+//       address,
+//       formattedDate,
+//       role,
+//     ];
+//     const [result]: any = await pool.query(query, values);
+
+//     res.status(201).json({
+//       message: "User added successfully",
+//       userId: result.insertId,
+//       name,
+//       email,
+//       role,
+//       contact,
+//       address,
+//       cnic,
+//       date,
+//     });
+//   } catch (error) {
+//     console.error("Error adding user:", error);
+//     res.status(500).json({ message: "Internal Server Error" });
+//   }
+// };
+
+// export const updateUser = async (
+//   req: Request,
+//   res: Response,
+// ): Promise<void> => {
+//   try {
+//     const userId = req.params.id;
+//     let { name, email, contact, cnic, address, date, role, password } =
+//       req.body;
+
+//     if (!userId) {
+//       res.status(400).json({ message: "User ID is required" });
+//       return;
+//     }
+
+//     const [user]: any = await pool.query("SELECT * FROM login WHERE id = ?", [
+//       userId,
+//     ]);
+//     if (user.length === 0) {
+//       res.status(404).json({ message: "User not found" });
+//       return;
+//     }
+
+//     if (name) name = name.charAt(0).toUpperCase() + name.slice(1);
+//     if (email) email = email.toLowerCase();
+
+//     const [existingUsers]: any = await pool.query(
+//       `SELECT * FROM login WHERE id != ? AND (LOWER(email) = LOWER(?) OR contact = ? OR cnic = ? OR LOWER(name) = LOWER(?))`,
+//       [userId, email, contact, cnic, name],
+//     );
+
+//     const duplicates: string[] = [];
+//     if (
+//       existingUsers.some(
+//         (u: any) => u.name.toLowerCase() === name?.toLowerCase(),
+//       )
+//     )
+//       duplicates.push("Name");
+//     if (
+//       existingUsers.some(
+//         (u: any) => u.email.toLowerCase() === email?.toLowerCase(),
+//       )
+//     )
+//       duplicates.push("Email");
+//     if (existingUsers.some((u: any) => u.contact === contact))
+//       duplicates.push("Phone");
+//     if (existingUsers.some((u: any) => u.cnic === cnic))
+//       duplicates.push("CNIC");
+
+//     if (duplicates.length > 0) {
+//       const message =
+//         duplicates.length === 1
+//           ? `${duplicates[0]} already exists!`
+//           : `${duplicates.join(" and ")} already exist!`;
+//       res.status(400).json({ message });
+//       return;
+//     }
+
+//     const updates: any = { name, email, contact, cnic, address, date, role };
+//     if (password) {
+//       if (password.length < 8 || password.length > 20) {
+//         res
+//           .status(400)
+//           .json({ message: "Password must be between 8 and 20 characters" });
+//         return;
+//       }
+//       updates.password = await bcrypt.hash(password, 10);
+//     }
+
+//     let query = "UPDATE login SET ";
+//     const values: any[] = [];
+//     Object.entries(updates).forEach(([key, value], index) => {
+//       if (value !== undefined) {
+//         query += `\`${key}\` = ?${index < Object.keys(updates).length - 1 ? "," : ""} `;
+//         values.push(value);
+//       }
+//     });
+//     query += " WHERE id = ?";
+//     values.push(userId);
+
+//     await pool.query(query, values);
+
+//     res.status(200).json({
+//       message: "User updated successfully",
+//       userId,
+//       updatedFields: updates,
+//     });
+//   } catch (error) {
+//     console.error("Error updating user:", error);
+//     res.status(500).json({ message: "Internal Server Error" });
+//   }
+// };
+
+// ===== Delete User =====
+
 export const addUser = async (req: Request, res: Response): Promise<void> => {
   try {
     let { name, email, password, contact, cnic, address, date, role } =
       req.body;
 
-    if (!name || !email || !password || !cnic || !role) {
+    if (!name || !email || !password || !cnic || !contact || !role) {
       res.status(400).json({ message: "Missing required fields" });
       return;
     }
@@ -31,7 +231,6 @@ export const addUser = async (req: Request, res: Response): Promise<void> => {
     email = email.toLowerCase();
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
     if (!emailRegex.test(email)) {
       res.status(400).json({ message: "Invalid email format" });
       return;
@@ -45,24 +244,47 @@ export const addUser = async (req: Request, res: Response): Promise<void> => {
     if (!/^\d{5}-\d{7}-\d{1}$/.test(cnic)) {
       res
         .status(400)
-        .json({ message: "CNIC must be 13 digits in format 12345-6789012-3" });
+        .json({ message: "CNIC must be in format 12345-6789012-3" });
       return;
     }
 
-    if (password.length < 5) {
+    if (password.length < 8 || password.length > 20) {
       res
         .status(400)
-        .json({ message: "Password must be at least 5 characters" });
+        .json({ message: "Password must be between 8 and 20 characters" });
       return;
     }
 
-    const [existingUser]: any = await pool.query(
-      "SELECT * FROM login WHERE LOWER(email) = LOWER(?)",
-      [email],
+    // ===== Duplicate checks (NO name) =====
+    const [existingUsers]: any = await pool.query(
+      `SELECT * FROM login 
+       WHERE LOWER(email) = LOWER(?) 
+          OR contact = ? 
+          OR cnic = ?`,
+      [email, contact, cnic]
     );
 
-    if (existingUser.length > 0) {
-      res.status(400).json({ message: "User already exists!" });
+    const duplicates: string[] = [];
+
+    if (
+      existingUsers.some(
+        (u: any) => u.email.toLowerCase() === email.toLowerCase()
+      )
+    )
+      duplicates.push("Email");
+
+    if (existingUsers.some((u: any) => u.contact === contact))
+      duplicates.push("Phone");
+
+    if (existingUsers.some((u: any) => u.cnic === cnic))
+      duplicates.push("CNIC");
+
+    if (duplicates.length > 0) {
+      const message =
+        duplicates.length === 1
+          ? `${duplicates[0]} already exists!`
+          : `${duplicates.join(" and ")} already exist!`;
+      res.status(400).json({ message });
       return;
     }
 
@@ -72,6 +294,7 @@ export const addUser = async (req: Request, res: Response): Promise<void> => {
       INSERT INTO login (name, email, password, contact, cnic, address, date, role)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `;
+
     const values = [
       name,
       email,
@@ -102,9 +325,10 @@ export const addUser = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
+
 export const updateUser = async (
   req: Request,
-  res: Response,
+  res: Response
 ): Promise<void> => {
   try {
     const userId = req.params.id;
@@ -119,6 +343,7 @@ export const updateUser = async (
     const [user]: any = await pool.query("SELECT * FROM login WHERE id = ?", [
       userId,
     ]);
+
     if (user.length === 0) {
       res.status(404).json({ message: "User not found" });
       return;
@@ -127,12 +352,47 @@ export const updateUser = async (
     if (name) name = name.charAt(0).toUpperCase() + name.slice(1);
     if (email) email = email.toLowerCase();
 
+    // ===== Duplicate checks (NO name) =====
+    const [existingUsers]: any = await pool.query(
+      `SELECT * FROM login 
+       WHERE id != ?
+         AND (LOWER(email) = LOWER(?) 
+              OR contact = ? 
+              OR cnic = ?)`,
+      [userId, email, contact, cnic]
+    );
+
+    const duplicates: string[] = [];
+
+    if (
+      existingUsers.some(
+        (u: any) => u.email.toLowerCase() === email?.toLowerCase()
+      )
+    )
+      duplicates.push("Email");
+
+    if (existingUsers.some((u: any) => u.contact === contact))
+      duplicates.push("Phone");
+
+    if (existingUsers.some((u: any) => u.cnic === cnic))
+      duplicates.push("CNIC");
+
+    if (duplicates.length > 0) {
+      const message =
+        duplicates.length === 1
+          ? `${duplicates[0]} already exists!`
+          : `${duplicates.join(" and ")} already exist!`;
+      res.status(400).json({ message });
+      return;
+    }
+
     const updates: any = { name, email, contact, cnic, address, date, role };
+
     if (password) {
-      if (password.length < 5) {
+      if (password.length < 8 || password.length > 20) {
         res
           .status(400)
-          .json({ message: "Password must be at least 5 characters" });
+          .json({ message: "Password must be between 8 and 20 characters" });
         return;
       }
       updates.password = await bcrypt.hash(password, 10);
@@ -140,12 +400,16 @@ export const updateUser = async (
 
     let query = "UPDATE login SET ";
     const values: any[] = [];
+
     Object.entries(updates).forEach(([key, value], index) => {
       if (value !== undefined) {
-        query += `\`${key}\` = ?${index < Object.keys(updates).length - 1 ? "," : ""} `;
+        query += `\`${key}\` = ?${
+          index < Object.keys(updates).length - 1 ? "," : ""
+        } `;
         values.push(value);
       }
     });
+
     query += " WHERE id = ?";
     values.push(userId);
 
@@ -161,6 +425,8 @@ export const updateUser = async (
     res.status(500).json({ message: "Internal Server Error" });
   }
 };
+
+
 
 export const deleteUser = async (req: Request, res: Response) => {
   try {

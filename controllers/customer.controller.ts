@@ -9,10 +9,13 @@ interface CustomerBody {
   companyAddress: string;
 }
 
-export const getAllCustomers = async (req: Request, res: Response): Promise<void> => {
+export const getAllCustomers = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
   try {
     const [rows] = await pool.query(
-      "SELECT * FROM customers WHERE customerStatus = 'Y' ORDER BY id DESC"
+      "SELECT * FROM customers WHERE customerStatus = 'Y' ORDER BY id DESC",
     );
     res.status(200).json(rows);
   } catch (error) {
@@ -21,9 +24,10 @@ export const getAllCustomers = async (req: Request, res: Response): Promise<void
   }
 };
 
-
-
-export const addCustomer = async (req: Request, res: Response): Promise<void> => {
+export const addCustomer = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
   try {
     const {
       customerName,
@@ -31,26 +35,41 @@ export const addCustomer = async (req: Request, res: Response): Promise<void> =>
       customerContact,
       companyName,
       companyAddress,
-    }: CustomerBody = req.body;
+    } = req.body;
 
     if (!customerName || !customerAddress || !customerContact) {
-      res.status(400).json({ message: "Name, address, and contact are required" });
+      res.status(400).json({
+        message: "Name, address, and contact are required",
+      });
+      return;
     }
 
-    const [existingCustomer]: any = await pool.query(
-      "SELECT * FROM customers WHERE customerName=? AND customerContact=? AND customerStatus='Y'",
-      [customerName, customerContact]
+    const [contactExists]: any = await pool.query(
+      `SELECT id 
+   FROM customers 
+   WHERE customerContact = ?
+   AND customerStatus = 'Y'`,
+      [customerContact],
     );
 
-    if (existingCustomer.length > 0) {
-      res.status(409).json({ message: "Customer with this name and contact already exists" });
+    if (contactExists.length > 0) {
+      res.status(409).json({
+        message: "Customer contact number already exists",
+      });
+      return;
     }
 
     await pool.query(
       `INSERT INTO customers 
         (customerName, customerAddress, customerContact, companyName, companyAddress) 
        VALUES (?, ?, ?, ?, ?)`,
-      [customerName, customerAddress, customerContact, companyName, companyAddress]
+      [
+        customerName,
+        customerAddress,
+        customerContact,
+        companyName,
+        companyAddress,
+      ],
     );
 
     res.status(201).json({ message: "Customer added successfully" });
@@ -60,9 +79,10 @@ export const addCustomer = async (req: Request, res: Response): Promise<void> =>
   }
 };
 
-
-
-export const updateCustomer = async (req: Request, res: Response): Promise<void> => {
+export const updateCustomer = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
   try {
     const customerId = req.params.id;
 
@@ -74,13 +94,37 @@ export const updateCustomer = async (req: Request, res: Response): Promise<void>
       companyAddress,
     }: CustomerBody = req.body;
 
+    if (!customerName || !customerAddress || !customerContact) {
+      res.status(400).json({
+        message: "Name, address, and contact are required",
+      });
+      return;
+    }
+
+    // Check if another customer has the same contact
+    const [contactExists]: any = await pool.query(
+      `SELECT id 
+       FROM customers 
+       WHERE customerContact = ?
+       AND id != ? 
+       AND customerStatus = 'Y'`,
+      [customerContact, customerId]
+    );
+
+    if (contactExists.length > 0) {
+      res.status(409).json({
+        message: "Customer contact number already exists",
+      });
+      return;
+    }
+
     await pool.query(
       `UPDATE customers SET 
         customerName=?, 
         customerAddress=?, 
         customerContact=?, 
         companyName=?, 
-        companyAddress=?
+        companyAddress=? 
        WHERE id=?`,
       [
         customerName,
@@ -99,14 +143,17 @@ export const updateCustomer = async (req: Request, res: Response): Promise<void>
   }
 };
 
-export const deleteCustomer = async (req: Request, res: Response): Promise<void> => {
+
+export const deleteCustomer = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
   try {
     const customerId = req.params.id;
 
-    await pool.query(
-      "UPDATE customers SET customerStatus='N' WHERE id=?",
-      [customerId]
-    );
+    await pool.query("UPDATE customers SET customerStatus='N' WHERE id=?", [
+      customerId,
+    ]);
 
     res.status(200).json({ message: "Customer deleted successfully" });
   } catch (error) {
@@ -115,7 +162,10 @@ export const deleteCustomer = async (req: Request, res: Response): Promise<void>
   }
 };
 
-export const getSingleCustomer = async (req: Request, res: Response): Promise<void> => {
+export const getSingleCustomer = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
   try {
     const customerId = req.params.id;
 

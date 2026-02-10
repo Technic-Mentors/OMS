@@ -8,7 +8,7 @@ export const getSalaries = async (req: Request, res: Response) => {
       SELECT 
         c.id,
         c.employee_id,
-        COALESCE(e.employee_name, 'Unknown') AS employee_name,
+        COALESCE(e.employee_name) AS employee_name,
         c.salary_amount,
         c.emp_of_mon_allowance,
         c.transport_allowance,

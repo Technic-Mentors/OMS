@@ -38,6 +38,31 @@ export const addConfigTime = async (
       return;
     }
 
+    if (
+      halfLeave < startTime ||
+      (halfLeave > endTime && lateTime < startTime) ||
+      lateTime > endTime
+    ) {
+      res.status(400).json({
+        message: "Late and Half Leave Time must be within Office Hours",
+      });
+      return;
+    }
+
+    if (lateTime < startTime || lateTime > endTime) {
+      res
+        .status(400)
+        .json({ message: "Late Time must be within Office Hours" });
+      return;
+    }
+
+    if (halfLeave < startTime || halfLeave > endTime) {
+      res
+        .status(400)
+        .json({ message: "Half Leave must be within Office Hours" });
+      return;
+    }
+
     const [result] = await pool.query(
       "INSERT INTO attendance_rules (startTime, endTime, offDay, lateTime, halfLeave) VALUES (?, ?, ?, ?, ?)",
       [startTime, endTime, offDay, lateTime, halfLeave],
@@ -61,6 +86,36 @@ export const updateConfigTime = async (
     const { id } = req.params;
     const { startTime, endTime, offDay, lateTime, halfLeave } =
       req.body as AttendanceRule;
+
+    if (!startTime || !endTime || !offDay || !lateTime || !halfLeave) {
+      res.status(400).json({ message: "All fields are required" });
+      return;
+    }
+
+    if (
+      halfLeave < startTime ||
+      (halfLeave > endTime && lateTime < startTime) ||
+      lateTime > endTime
+    ) {
+      res.status(400).json({
+        message: "Late and Half Leave Time must be within Office Hours",
+      });
+      return;
+    }
+
+    if (lateTime < startTime || lateTime > endTime) {
+      res
+        .status(400)
+        .json({ message: "Late Time must be within Office Hours" });
+      return;
+    }
+
+    if (halfLeave < startTime || halfLeave > endTime) {
+      res
+        .status(400)
+        .json({ message: "Half Leave must be within Office Hours" });
+      return;
+    }
 
     const [result] = await pool.query(
       `UPDATE attendance_rules 
