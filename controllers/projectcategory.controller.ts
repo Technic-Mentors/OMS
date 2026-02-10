@@ -3,14 +3,14 @@ import pool from "../database/db";
 
 export const getAllCategories = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     const [rows] = await pool.query(
       `SELECT id, categoryName 
        FROM categories 
        WHERE categoryStatus = 'Y'
-       ORDER BY id ASC`
+       ORDER BY id ASC`,
     );
 
     res.status(200).json(rows);
@@ -22,7 +22,7 @@ export const getAllCategories = async (
 
 export const addCategory = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     const { categoryName } = req.body;
@@ -32,10 +32,20 @@ export const addCategory = async (
       return;
     }
 
+    const [existing] = await pool.query(
+      `SELECT id FROM categories WHERE categoryName = ? AND categoryStatus = 'Y'`,
+      [categoryName.trim()],
+    );
+
+    if ((existing as any).length > 0) {
+      res.status(400).json({ message: "Category already exists" });
+      return;
+    }
+
     await pool.query(
       `INSERT INTO categories (categoryName, categoryStatus)
        VALUES (?, 'Y')`,
-      [categoryName]
+      [categoryName.trim()],
     );
 
     res.status(201).json({ message: "Category added successfully" });
@@ -47,7 +57,7 @@ export const addCategory = async (
 
 export const updateCategory = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     const { id } = req.params;
@@ -62,7 +72,7 @@ export const updateCategory = async (
       `UPDATE categories 
        SET categoryName = ?
        WHERE id = ? AND categoryStatus = 'Y'`,
-      [categoryName, id]
+      [categoryName, id],
     );
 
     res.status(200).json({ message: "Category updated successfully" });
@@ -74,7 +84,7 @@ export const updateCategory = async (
 
 export const deleteCategory = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     const { id } = req.params;
@@ -83,7 +93,7 @@ export const deleteCategory = async (
       `UPDATE categories 
        SET categoryStatus = 'N'
        WHERE id = ?`,
-      [id]
+      [id],
     );
 
     res.status(200).json({ message: "Category deleted successfully" });

@@ -3,7 +3,7 @@ import pool from "../database/db";
 
 export const getAllProjects = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     const [rows]: any = await pool.query(
@@ -19,7 +19,7 @@ export const getAllProjects = async (
       FROM projects
       WHERE projectStatus = 'Y'
       ORDER BY id DESC
-      `
+      `,
     );
 
     res.status(200).json(rows);
@@ -31,14 +31,41 @@ export const getAllProjects = async (
 
 export const addProject = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
-    const { projectName, projectCategory, description, startDate, endDate , completionStatus } =
-      req.body;
+    const {
+      projectName,
+      projectCategory,
+      description,
+      startDate,
+      endDate,
+      completionStatus,
+    } = req.body;
 
     if (!projectName || !projectCategory || !startDate || !endDate) {
       res.status(400).json({ message: "Required fields are missing" });
+      return;
+    }
+
+    const trimmedName = projectName.trim();
+    const trimmedCategory = projectCategory.trim();
+
+    const [existing]: any = await pool.query(
+      `
+      SELECT id 
+      FROM projects 
+      WHERE LOWER(projectName) = LOWER(?) 
+        AND LOWER(projectCategory) = LOWER(?) 
+        AND projectStatus = 'Y'
+      `,
+      [trimmedName, trimmedCategory],
+    );
+
+    if (existing.length > 0) {
+      res.status(400).json({
+        message: "Project with this name and category already exists",
+      });
       return;
     }
 
@@ -48,7 +75,14 @@ export const addProject = async (
       (projectName, projectCategory, description, startDate, endDate, projectStatus, completionStatus)
       VALUES (?, ?, ?, ?, ?, 'Y', ?)
       `,
-      [projectName, projectCategory, description, startDate, endDate, completionStatus]
+      [
+        trimmedName,
+        trimmedCategory,
+        description,
+        startDate,
+        endDate,
+        completionStatus,
+      ],
     );
 
     res.status(201).json({ message: "Project added successfully" });
@@ -60,7 +94,7 @@ export const addProject = async (
 
 export const updateProject = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     const { id } = req.params;
@@ -73,7 +107,13 @@ export const updateProject = async (
       completionStatus,
     } = req.body;
 
-    if (!projectName || !projectCategory || !startDate || !endDate || !completionStatus) {
+    if (
+      !projectName ||
+      !projectCategory ||
+      !startDate ||
+      !endDate ||
+      !completionStatus
+    ) {
       res.status(400).json({ message: "Required fields are missing" });
       return;
     }
@@ -98,7 +138,7 @@ export const updateProject = async (
         endDate,
         completionStatus,
         id,
-      ]
+      ],
     );
 
     const [updatedRows]: any = await pool.query(
@@ -114,7 +154,7 @@ export const updateProject = async (
       FROM projects
       WHERE id = ?
       `,
-      [id]
+      [id],
     );
 
     res.status(200).json({
@@ -127,8 +167,10 @@ export const updateProject = async (
   }
 };
 
-
-export const updateCompletionStatus = async (req: Request, res: Response): Promise<void> => {
+export const updateCompletionStatus = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
   try {
     const { id } = req.params;
     const { completionStatus } = req.body;
@@ -141,7 +183,7 @@ export const updateCompletionStatus = async (req: Request, res: Response): Promi
 
     const [result]: any = await pool.query(
       `UPDATE projects SET completionStatus = ? WHERE id = ?`,
-      [completionStatus, id]
+      [completionStatus, id],
     );
 
     if (result.affectedRows === 0) {
@@ -156,10 +198,9 @@ export const updateCompletionStatus = async (req: Request, res: Response): Promi
   }
 };
 
-
 export const deleteProject = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     const { id } = req.params;
@@ -170,7 +211,7 @@ export const deleteProject = async (
       SET projectStatus = 'N'
       WHERE id = ?
       `,
-      [id]
+      [id],
     );
 
     res.status(200).json({ message: "Project deleted successfully" });

@@ -70,11 +70,11 @@ export const getMyLeaves = async (req: RequestWithUser, res: Response) => {
 
 export const getAllUsers = async (
   req: RequestWithUser,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     const [rows] = await pool.query<RowDataPacket[]>(
-      "SELECT id, name, role FROM login"
+      "SELECT id, name, role FROM login",
     );
     res.json({ users: rows });
   } catch (error) {
@@ -111,11 +111,22 @@ export const addLeave = async (req: RequestWithUser, res: Response) => {
       userId = req.user.id;
     }
 
+    const [existingLeave] = await pool.query(
+      `SELECT id FROM leaves WHERE userId = ? AND date = ? AND leaveStatus != 'Rejected'`,
+      [userId, date],
+    );
+
+    if ((existingLeave as any).length > 0) {
+      return res
+        .status(400)
+        .json({ message: "Leave already applied  for this user  today" });
+    }
+
     await pool.query(
       `INSERT INTO leaves 
         (userId, leaveSubject, date, leaveReason, leaveStatus)
        VALUES (?, ?, ?, ?, ?)`,
-      [userId, leaveSubject, date, leaveReason, "Pending"]
+      [userId, leaveSubject, date, leaveReason, "Pending"],
     );
 
     return res.status(201).json({ message: "Leave added successfully" });
@@ -127,10 +138,9 @@ export const addLeave = async (req: RequestWithUser, res: Response) => {
   }
 };
 
-
 export const updateLeave = async (
   req: RequestWithUser,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     const leaveId = Number(req.params.id);
@@ -140,12 +150,12 @@ export const updateLeave = async (
       `UPDATE leaves
        SET date = ?, leaveStatus = ?, leaveSubject = ?, leaveReason = ?
        WHERE id = ?`,
-      [date, leaveStatus, leaveSubject, leaveReason, leaveId]
+      [date, leaveStatus, leaveSubject, leaveReason, leaveId],
     );
 
     const [leaveRows] = await pool.query<RowDataPacket[]>(
       `SELECT userId FROM leaves WHERE id = ?`,
-      [leaveId]
+      [leaveId],
     );
 
     if (leaveRows.length > 0) {
@@ -153,7 +163,7 @@ export const updateLeave = async (
 
       const [attendanceRows] = await pool.query<RowDataPacket[]>(
         `SELECT id FROM attendance WHERE userId = ? AND date = ?`,
-        [userId, date]
+        [userId, date],
       );
 
       if (attendanceRows.length > 0) {
@@ -164,19 +174,19 @@ export const updateLeave = async (
                leaveReason = ?
            WHERE userId = ? AND date = ?`,
           [
-            leaveStatus === "Approved" ? "Leave" : "Absent", 
-            leaveStatus, 
-            leaveReason, 
-            userId, 
-            date
-          ]
+            leaveStatus === "Approved" ? "Leave" : "Absent",
+            leaveStatus,
+            leaveReason,
+            userId,
+            date,
+          ],
         );
       } else if (leaveStatus === "Approved") {
         await pool.query(
           `INSERT INTO attendance
            (userId, date, attendanceStatus, leaveStatus, leaveReason, status)
            VALUES (?, ?, 'Leave', 'Approved', ?, 'Y')`,
-          [userId, date, leaveReason]
+          [userId, date, leaveReason],
         );
       }
     }
@@ -190,10 +200,6 @@ export const updateLeave = async (
   }
 };
 
-
-
-
-
 export const deleteLeave = async (req: RequestWithUser, res: Response) => {
   try {
     const leaveId = Number(req.params.id);
@@ -203,7 +209,7 @@ export const deleteLeave = async (req: RequestWithUser, res: Response) => {
 
     const [rows] = await pool.query<RowDataPacket[]>(
       "SELECT userId FROM leaves WHERE id = ?",
-      [leaveId]
+      [leaveId],
     );
 
     if (rows.length === 0) {
@@ -224,7 +230,3 @@ export const deleteLeave = async (req: RequestWithUser, res: Response) => {
     res.status(500).json({ message: "Server error" });
   }
 };
-
-
-
-

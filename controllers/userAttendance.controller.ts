@@ -2,7 +2,6 @@ import { Request, Response } from "express";
 import pool from "../database/db";
 import { RowDataPacket, ResultSetHeader } from "mysql2";
 
-
 const toMySQLDate = (dateStr: string | null) => {
   if (!dateStr) return null;
   const date = new Date(dateStr);
@@ -32,14 +31,12 @@ const calculateWorkingHours = (clockIn: string, clockOut: string) => {
     .padStart(2, "0")}`;
 };
 
-
 const getAttendanceRule = async () => {
   const [rows]: any = await pool.query(
     "SELECT * FROM attendance_rules ORDER BY id DESC LIMIT 1",
   );
   return rows.length ? rows[0] : null;
 };
-
 
 export const getUsers = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -109,6 +106,19 @@ export const addAttendance = async (
 
   try {
     const formattedDate = toMySQLDate(date);
+
+    const [existing] = await pool.query<RowDataPacket[]>(
+      `SELECT id FROM attendance WHERE userId = ? AND date = ? AND status = 'Y'`,
+      [userId, formattedDate],
+    );
+
+    if (existing.length > 0) {
+      res
+        .status(400)
+        .json({ message: "Attendance already added for this user today." });
+      return;
+    }
+
     const workingHours = calculateWorkingHours(clockIn, clockOut);
     const rule = await getAttendanceRule();
 

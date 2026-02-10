@@ -79,7 +79,7 @@ export const getUserTodos = async (req: Request, res: Response) => {
 
 export const addTodo = async (
   req: RequestWithUser,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     const {
@@ -92,6 +92,7 @@ export const addTodo = async (
       todoStatus,
       completionStatus,
     } = req.body;
+
     const user = req.user;
 
     if (!task || !startDate || !endDate || !deadline) {
@@ -99,7 +100,6 @@ export const addTodo = async (
     }
 
     let finalEmployeeId: number;
-
     if (user?.role === "admin") {
       if (!employee_id)
         res.status(400).json({ message: "employee_id is required for admin" });
@@ -108,6 +108,32 @@ export const addTodo = async (
       finalEmployeeId = user?.id ?? 0;
     }
 
+    // DUPLICATION CHECK
+    const [existing]: any = await pool.query(
+      `
+      SELECT id FROM todo 
+      WHERE employee_id = ?
+        AND task = ?
+        AND ((startDate <= ? AND endDate >= ?) OR (startDate <= ? AND endDate >= ?))
+        AND completionStatus != 'Deleted'
+      `,
+      [
+        finalEmployeeId,
+        task,
+        normalizeDate(endDate),
+        normalizeDate(startDate),
+        normalizeDate(endDate),
+        normalizeDate(endDate),
+      ],
+    );
+
+    if (existing.length > 0) {
+      res.status(400).json({
+        message: "This task already exists for the selected date range",
+      });
+    }
+
+    // Insert the todo
     const query = `
       INSERT INTO todo
       (employee_id, task, note, startDate, endDate, deadline, todoStatus, completionStatus)
@@ -134,11 +160,19 @@ export const addTodo = async (
 
 export const updateTodo = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     const { id } = req.params;
-    const { employee_id, task, note, startDate, endDate, deadline, completionStatus } = req.body;
+    const {
+      employee_id,
+      task,
+      note,
+      startDate,
+      endDate,
+      deadline,
+      completionStatus,
+    } = req.body;
 
     if (!id) {
       res.status(400).json({ message: "Todo ID is required" });
@@ -188,7 +222,7 @@ export const updateTodo = async (
 
 export const deleteTodo = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     const { id } = req.params;
