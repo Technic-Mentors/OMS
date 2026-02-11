@@ -118,6 +118,28 @@ export const updateProject = async (
       return;
     }
 
+    const trimmedName = projectName.trim();
+    const trimmedCategory = projectCategory.trim();
+
+    const [existing]: any = await pool.query(
+      `
+      SELECT id 
+      FROM projects 
+      WHERE LOWER(projectName) = LOWER(?) 
+        AND LOWER(projectCategory) = LOWER(?) 
+        AND projectStatus = 'Y'
+        AND id != ?
+      `,
+      [trimmedName, trimmedCategory, id],
+    );
+
+    if (existing.length > 0) {
+      res.status(400).json({
+        message: "Another project with this name and category already exists",
+      });
+      return;
+    }
+
     await pool.query(
       `
       UPDATE projects
@@ -131,8 +153,8 @@ export const updateProject = async (
       WHERE id = ?
       `,
       [
-        projectName,
-        projectCategory,
+        trimmedName,
+        trimmedCategory,
         description,
         startDate,
         endDate,

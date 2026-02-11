@@ -68,6 +68,16 @@ export const updateCategory = async (
       return;
     }
 
+    const [existing] = await pool.query(
+      `SELECT id FROM categories WHERE categoryName = ? AND categoryStatus = 'Y'`,
+      [categoryName.trim()],
+    );
+
+    if ((existing as any).length > 0) {
+      res.status(400).json({ message: "Category already exists" });
+      return;
+    }
+
     await pool.query(
       `UPDATE categories 
        SET categoryName = ?
