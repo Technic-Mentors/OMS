@@ -4,7 +4,7 @@ import pool from "../database/db";
 export const getCategories = async (req: Request, res: Response) => {
   try {
     const [rows] = await pool.query(
-      "SELECT * FROM asset_categories ORDER BY id DESC"
+      "SELECT * FROM asset_categories ORDER BY id DESC",
     );
     res.json(rows);
   } catch (error) {
@@ -15,13 +15,13 @@ export const getCategories = async (req: Request, res: Response) => {
 
 export const getCategoryById = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   const { id } = req.params;
   try {
     const [rows] = await pool.query(
       "SELECT * FROM asset_categories WHERE id = ?",
-      [id]
+      [id],
     );
     if ((rows as any[]).length === 0)
       res.status(404).json({ message: "Category not found" });
@@ -32,12 +32,22 @@ export const getCategoryById = async (
   }
 };
 
-export const addCategory = async (req: Request, res: Response) => {
+export const addCategory = async (req: Request, res: Response):Promise <void> => {
   const { category_name, category_status } = req.body;
   try {
+    const [existing]: any = await pool.query(
+      "SELECT id FROM asset_categories WHERE LOWER(category_name) = LOWER(?)",
+      [category_name],
+    );
+
+    if (existing.length > 0) {
+      res.status(400).json({ message: "Category name already exists" });
+      return;
+    }
+
     const [result] = await pool.query(
       "INSERT INTO asset_categories (category_name, category_status) VALUES (?, ?)",
-      [category_name, (category_status || "Y").charAt(0)]
+      [category_name, (category_status || "Y").charAt(0)],
     );
     res
       .status(201)
@@ -48,13 +58,25 @@ export const addCategory = async (req: Request, res: Response) => {
   }
 };
 
-export const updateCategory = async (req: Request, res: Response) => {
+export const updateCategory = async (req: Request, res: Response):Promise<void> => {
   const { id } = req.params;
   const { category_name, category_status } = req.body;
   try {
+    const [existing]: any = await pool.query(
+      "SELECT id FROM asset_categories WHERE LOWER(category_name) = LOWER(?) AND id != ?",
+      [category_name, id],
+    );
+
+    if (existing.length > 0) {
+     res
+        .status(400)
+        .json({ message: "Another category with this name already exists" });
+        return;
+    }
+
     const [result] = await pool.query(
       "UPDATE asset_categories SET category_name = ?, category_status = ? WHERE id = ?",
-      [category_name, category_status || "Y", id]
+      [category_name, category_status || "Y", id],
     );
     res.json({ message: "Category updated" });
   } catch (error) {
@@ -68,7 +90,7 @@ export const deleteCategory = async (req: Request, res: Response) => {
   try {
     const [result] = await pool.query(
       "DELETE FROM asset_categories WHERE id = ?",
-      [id]
+      [id],
     );
     res.json({ message: "Category deleted" });
   } catch (error) {

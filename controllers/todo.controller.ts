@@ -129,7 +129,7 @@ export const addTodo = async (
 
     if (existing.length > 0) {
       res.status(400).json({
-        message: "This task already exists for the selected date range",
+        message: "This task of this user already exists for this selected date range",
       });
     }
 

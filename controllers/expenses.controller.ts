@@ -3,7 +3,7 @@ import pool from "../database/db";
 
 export const getExpenses = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   const page = Number(req.query.page) || 1;
   const limit = Number(req.query.limit) || 10;
@@ -28,7 +28,7 @@ export const getExpenses = async (
       ORDER BY e.id ASC
       LIMIT ? OFFSET ?
       `,
-      [limit, offset]
+      [limit, offset],
     );
 
     const [countResult]: any = await pool.query(
@@ -36,7 +36,7 @@ export const getExpenses = async (
       SELECT COUNT(*) AS total
       FROM expenses
       WHERE expenseStatus = 'Y'
-      `
+      `,
     );
 
     const total = countResult[0].total;
@@ -55,7 +55,7 @@ export const getExpenses = async (
 
 export const getTotalExpenseAmount = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     const [rows]: any = await pool.query(`
@@ -73,23 +73,34 @@ export const getTotalExpenseAmount = async (
   }
 };
 
-
 export const addExpense = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   const { expenseName, expenseCategoryId, addedBy, date, amount } = req.body;
 
-  const formattedDate = new Date(date).toLocaleDateString('sv-SE');
+  const formattedDate = new Date(date).toLocaleDateString("sv-SE");
 
   try {
+    const [existing]: any = await pool.query(
+      "SELECT id FROM expenses WHERE expenseName = ? AND expenseCategoryId = ? AND expenseStatus = 'Y'",
+      [expenseName, expenseCategoryId],
+    );
+
+    if (existing.length > 0) {
+      res.status(409).json({
+        message: "An expense with this name already exists in this category.",
+      });
+      return;
+    }
+
     await pool.query(
       `
       INSERT INTO expenses 
       (expenseName, expenseCategoryId, addedBy, date, amount , expenseStatus)
       VALUES (?, ?, ?, ?, ? , 'Y')
       `,
-      [expenseName, expenseCategoryId, addedBy, formattedDate, amount]
+      [expenseName, expenseCategoryId, addedBy, formattedDate, amount],
     );
 
     res.status(201).json({ message: "Expense added successfully" });
@@ -101,7 +112,7 @@ export const addExpense = async (
 
 export const updateExpense = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   const { id } = req.params;
   const { expenseName, expenseCategoryId, amount, date } = req.body;
@@ -109,6 +120,19 @@ export const updateExpense = async (
   const formattedDate = new Date(date).toISOString().split("T")[0];
 
   try {
+    const [existing]: any = await pool.query(
+      "SELECT id FROM expenses WHERE expenseName = ? AND expenseCategoryId = ? AND id != ? AND expenseStatus = 'Y'",
+      [expenseName, expenseCategoryId, id],
+    );
+
+    if (existing.length > 0) {
+      res.status(409).json({
+        message:
+          "Another expense with this name already exists in this category.",
+      });
+      return;
+    }
+
     await pool.query(
       `
       UPDATE expenses
@@ -118,7 +142,7 @@ export const updateExpense = async (
           date = ?
       WHERE id = ?
       `,
-      [expenseName, expenseCategoryId, amount, formattedDate, id]
+      [expenseName, expenseCategoryId, amount, formattedDate, id],
     );
 
     res.status(200).json({ message: "Expense updated successfully" });
@@ -130,7 +154,7 @@ export const updateExpense = async (
 
 export const deleteExpense = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   const { id } = req.params;
 
@@ -141,7 +165,7 @@ export const deleteExpense = async (
       SET expenseStatus = 'N'
       WHERE id = ?
       `,
-      [id]
+      [id],
     );
 
     res.status(200).json({ message: "Expense deleted successfully" });
@@ -153,7 +177,7 @@ export const deleteExpense = async (
 
 export const getExpenseById = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   const { id } = req.params;
 
@@ -168,7 +192,7 @@ export const getExpenseById = async (
         ON e.expenseCategoryId = c.id
       WHERE e.id = ?
       `,
-      [id]
+      [id],
     );
 
     res.status(200).json(rows[0]);

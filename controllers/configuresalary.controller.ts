@@ -68,7 +68,7 @@ export const getSalaryById = async (
   }
 };
 
-export const addSalary = async (req: Request, res: Response) => {
+export const addSalary = async (req: Request, res: Response):Promise <void> => {
   try {
     const {
       employee_id,
@@ -79,6 +79,23 @@ export const addSalary = async (req: Request, res: Response) => {
       total_salary,
       config_date,
     } = req.body;
+
+    const [existing]: any = await pool.query(
+      `SELECT id FROM configempsalaries 
+       WHERE employee_id = ? 
+       AND MONTH(config_date) = MONTH(?) 
+       AND YEAR(config_date) = YEAR(?) 
+       AND status = 'ACTIVE'`,
+      [employee_id, config_date, config_date],
+    );
+
+    if (existing.length > 0) {
+      res.status(400).json({
+        message:
+          "Salary for this employee has already been configured for this month.",
+      });
+      return;
+    }
 
     const [result] = await pool.query(
       `INSERT INTO configempsalaries
@@ -104,10 +121,11 @@ export const addSalary = async (req: Request, res: Response) => {
   }
 };
 
-export const updateSalary = async (req: Request, res: Response) => {
+export const updateSalary = async (req: Request, res: Response):Promise <void> => {
   try {
     const { id } = req.params;
     const {
+      employee_id,
       salary_amount,
       emp_of_mon_allowance = 0,
       transport_allowance = 0,
@@ -115,6 +133,24 @@ export const updateSalary = async (req: Request, res: Response) => {
       total_salary,
       config_date,
     } = req.body;
+
+    const [existing]: any = await pool.query(
+      `SELECT id FROM configempsalaries 
+       WHERE employee_id = ? 
+       AND MONTH(config_date) = MONTH(?) 
+       AND YEAR(config_date) = YEAR(?) 
+       AND status = 'ACTIVE' 
+       AND id != ?`,
+      [employee_id, config_date, config_date, id],
+    );
+
+    if (existing.length > 0) {
+      res.status(400).json({
+        message:
+          "A configuration for this employee already exists in the selected month.",
+      });
+      return;
+    }
 
     await pool.query(
       `UPDATE configempsalaries

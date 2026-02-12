@@ -49,6 +49,16 @@ export const addJob = async (req: Request, res: Response): Promise<void> => {
       res.status(400).json({ message: "Missing fields" });
     }
 
+    const [existing]: any = await pool.query(
+      "SELECT id FROM jobs WHERE job_title = ? AND status = 'Y'",
+      [job_title]
+    );
+
+    if (existing.length > 0) {
+      res.status(400).json({ message: "Job title already exists" });
+      return; 
+    }
+
     await pool.query(
       `
       INSERT INTO jobs (job_title, description)
@@ -68,6 +78,16 @@ export const updateJob = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { job_title, description } = req.body;
+
+    const [existing]: any = await pool.query(
+      "SELECT id FROM jobs WHERE job_title = ? AND id != ? AND status = 'Y'",
+      [job_title, id]
+    );
+
+    if (existing.length > 0) {
+       res.status(400).json({ message: "Another job with this title already exists" });
+       return;
+    }
 
     await pool.query(
       `

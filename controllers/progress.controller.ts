@@ -35,7 +35,7 @@ ORDER BY pr.id DESC
 
 export const getMyProgress = async (
   req: AuthenticatedRequest,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     const userId = req.user?.id;
@@ -72,7 +72,7 @@ export const getMyProgress = async (
 
 export const getMyAssignedProjects = async (
   req: AuthenticatedRequest,
-  res: Response
+  res: Response,
 ) => {
   try {
     const userId = req.user?.id;
@@ -101,7 +101,7 @@ export const getMyAssignedProjects = async (
 
 export const getProjectsByEmployee = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   const { employee_id } = req.params;
 
@@ -133,7 +133,7 @@ export const getProjectsByEmployee = async (
 
 export const addProgress = async (
   req: AuthenticatedRequest,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   const { projectId, date, note, employee_id: bodyEmployeeId } = req.body;
 
@@ -146,12 +146,23 @@ export const addProgress = async (
   }
 
   try {
+    const [existingProgress] = await pool.query<RowDataPacket[]>(
+      `SELECT id FROM progress 
+       WHERE employee_id = ? AND date = ?`,
+      [employee_id, date]
+    );
+
+    if (Array.isArray(existingProgress) && existingProgress.length > 0) {
+      res.status(409).json({ 
+        message: "Progress already exists for this user on the selected date. Only one progress entry per day is allowed." 
+      });
+      return;
+    }
+
     await pool.query(
-      `
-      INSERT INTO progress (employee_id, projectId, date, note, progressStatus)
-      VALUES (?, ?, ?, ?, "Y")
-      `,
-      [employee_id, projectId, date, note]
+      `INSERT INTO progress (employee_id, projectId, date, note, progressStatus)
+       VALUES (?, ?, ?, ?, "Y")`,
+      [employee_id, projectId, date, note],
     );
 
     res.status(200).json({ message: "Progress Added" });
@@ -165,6 +176,19 @@ export const updateProgress = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { employee_id, projectId, date, note, progressStatus } = req.body;
+
+    const [existingProgress] = await pool.query<RowDataPacket[]>(
+      `SELECT id FROM progress 
+       WHERE employee_id = ? AND date = ? AND id != ?`,
+      [employee_id, date, id]
+    );
+
+    if (Array.isArray(existingProgress) && existingProgress.length > 0) {
+      res.status(409).json({ 
+        message: "Progress already exists for this user on the selected date." 
+      });
+      return;
+    }
 
     const query = `
       UPDATE progress
@@ -189,7 +213,7 @@ export const updateProgress = async (req: Request, res: Response) => {
 
 export const deleteProgress = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   const id = req.params.id;
 
@@ -198,7 +222,7 @@ export const deleteProgress = async (
   }
 
   try {
-    const [result] = await pool.query("DELETE FROM progress WHERE id = ?", [
+    const [result] = await pool.query("UPDATE FROM progress WHERE id = ?", [
       id,
     ]);
 
@@ -210,5 +234,28 @@ export const deleteProgress = async (
   } catch (error) {
     console.error("Error deleting progress:", error);
     res.status(500).json({ message: "Server error" });
+  }
+};
+
+export const deleteProject = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  try {
+    const { id } = req.params;
+
+    await pool.query(
+      `
+      UPDATE projects
+      SET projectStatus = 'N'
+      WHERE id = ?
+      `,
+      [id],
+    );
+
+    res.status(200).json({ message: "Project deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting project:", error);
+    res.status(500).json({ message: "Failed to delete project" });
   }
 };
