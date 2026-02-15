@@ -99,6 +99,34 @@ export const addTodo = async (
       res.status(400).json({ message: "Task and dates are required" });
     }
 
+    if (new Date(startDate) && new Date(endDate) > new Date(deadline)) {
+      res.status(400).json({
+        message: "Start Date and End Date cannot be later than Deadline",
+      });
+      return;
+    }
+
+    if (new Date(startDate) > new Date(endDate)) {
+      res
+        .status(400)
+        .json({ message: "Start Date cannot be later than End Date" });
+      return;
+    }
+
+    if (new Date(startDate) > new Date(deadline)) {
+      res
+        .status(400)
+        .json({ message: "Start Date cannot be later than Deadline" });
+      return;
+    }
+
+    if (new Date(endDate) > new Date(deadline)) {
+      res
+        .status(400)
+        .json({ message: "End Date cannot be later than Deadline" });
+      return;
+    }
+
     let finalEmployeeId: number;
     if (user?.role === "admin") {
       if (!employee_id)
@@ -108,7 +136,6 @@ export const addTodo = async (
       finalEmployeeId = user?.id ?? 0;
     }
 
-    // DUPLICATION CHECK
     const [existing]: any = await pool.query(
       `
       SELECT id FROM todo 
@@ -129,11 +156,11 @@ export const addTodo = async (
 
     if (existing.length > 0) {
       res.status(400).json({
-        message: "This task of this user already exists for this selected date range",
+        message:
+          "This task of this user already exists for this selected date range",
       });
     }
 
-    // Insert the todo
     const query = `
       INSERT INTO todo
       (employee_id, task, note, startDate, endDate, deadline, todoStatus, completionStatus)
@@ -183,6 +210,34 @@ export const updateTodo = async (
         message:
           "employee_id, task, startDate, endDate, and deadline are required",
       });
+    }
+
+    if (new Date(startDate) && new Date(endDate) > new Date(deadline)) {
+      res.status(400).json({
+        message: "Start Date and End Date cannot be later than Deadline",
+      });
+      return;
+    }
+
+    if (new Date(startDate) > new Date(endDate)) {
+      res
+        .status(400)
+        .json({ message: "Start Date cannot be later than End Date" });
+      return;
+    }
+
+    if (new Date(startDate) > new Date(deadline)) {
+      res
+        .status(400)
+        .json({ message: "Start Date cannot be later than Deadline" });
+      return;
+    }
+
+    if (new Date(endDate) > new Date(deadline)) {
+      res
+        .status(400)
+        .json({ message: "End Date cannot be later than Deadline" });
+      return;
     }
 
     const query = `

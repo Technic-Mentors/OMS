@@ -8,6 +8,7 @@ interface ResignationRow extends RowDataPacket {
   employee_name: string;
   designation: string;
   resignation_date: string;
+  note: string;
   approval_status: string;
 }
 
@@ -17,14 +18,14 @@ interface EmployeeLifeLineRow extends RowDataPacket {
 
 export const getResignations = async (
   req: AuthenticatedRequest,
-  res: Response
+  res: Response,
 ) => {
   try {
     const [rows] = await pool.query<ResignationRow[]>(
-      `SELECT r.id, l.name AS employee_name, r.designation, r.resignation_date, r.approval_status
+      `SELECT r.id, l.name AS employee_name, r.designation, r.resignation_date, r.note, r.approval_status
        FROM resignation r
        JOIN login l ON r.employee_id = l.id
-       ORDER BY r.id DESC`
+       ORDER BY r.id DESC`,
     );
 
     res.json(rows);
@@ -36,7 +37,7 @@ export const getResignations = async (
 
 export const getMyResignations = async (
   req: AuthenticatedRequest,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   if (!req.user) {
     res.status(401).json({ message: "Unauthorized" });
@@ -47,11 +48,11 @@ export const getMyResignations = async (
 
   try {
     const [rows] = await pool.query<ResignationRow[]>(
-      `SELECT r.id, l.name AS employee_name, r.designation, r.resignation_date AS resignation_date, r.approval_status
+      `SELECT r.id, l.name AS employee_name, r.designation, r.resignation_date AS resignation_date, r.note, r.approval_status
        FROM resignation r
        JOIN login l ON r.employee_id = l.id
        WHERE r.employee_id = ?`,
-      [userId]
+      [userId],
     );
 
     res.json(rows);
@@ -63,7 +64,7 @@ export const getMyResignations = async (
 
 export const addResignation = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   const { id, designation, note, resignation_date } = req.body;
 
@@ -72,11 +73,43 @@ export const addResignation = async (
     return;
   }
 
+  const [userRows]: any = await pool.query(
+    "SELECT date FROM login WHERE id = ?",
+    [id],
+  );
+
+  if (userRows.length === 0) {
+    res.status(404).json({ message: "Employee not found" });
+    return;
+  }
+
+  const joiningDate = new Date(userRows[0].date);
+  const selectedResignationDate = new Date(resignation_date);
+
+  if (selectedResignationDate < joiningDate) {
+    res.status(400).json({
+      message: `Resignation date cannot be before joining date (${userRows[0].date})`,
+    });
+    return;
+  }
+
   try {
+    const [existingResignation]: any = await pool.query(
+      "SELECT id FROM resignation WHERE employee_id = ?",
+      [id],
+    );
+
+    if (existingResignation.length > 0) {
+      res
+        .status(400)
+        .json({ message: "Resignation already submitted for this employee" });
+      return;
+    }
+
     await pool.query<ResultSetHeader>(
       `INSERT INTO resignation (employee_id, designation, note, resignation_date)
        VALUES (?, ?, ?, ?)`,
-      [id, designation, note, resignation_date]
+      [id, designation, note, resignation_date],
     );
 
     res.json({ message: "Resignation added successfully" });
@@ -88,7 +121,7 @@ export const addResignation = async (
 
 export const updateResignation = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   const { id } = req.params;
   let { designation, note, resignation_date, approval_status } = req.body;
@@ -104,6 +137,26 @@ export const updateResignation = async (
     return;
   }
 
+  const [userRows]: any = await pool.query(
+    "SELECT date FROM login WHERE id = ?",
+    [id],
+  );
+
+  if (userRows.length === 0) {
+    res.status(404).json({ message: "Employee not found" });
+    return;
+  }
+
+  const joiningDate = new Date(userRows[0].date);
+  const selectedResignationDate = new Date(resignation_date);
+
+  if (selectedResignationDate < joiningDate) {
+    res.status(400).json({
+      message: `Resignation date cannot be before joining date (${userRows[0].date})`,
+    });
+    return;
+  }
+
   const connection = await pool.getConnection();
 
   try {
@@ -113,19 +166,19 @@ export const updateResignation = async (
       `UPDATE resignation
        SET designation = ?, note = ?, resignation_date = ?, approval_status = ?
        WHERE id = ?`,
-      [designation, note, resignation_date, approval_status, id]
+      [designation, note, resignation_date, approval_status, id],
     );
 
     if (approval_status === "ACCEPTED") {
       const [[resignation]]: any = await connection.query(
         `SELECT employee_id FROM resignation WHERE id = ?`,
-        [id]
+        [id],
       );
 
       if (resignation?.employee_id) {
         await connection.query(
           `UPDATE login SET loginStatus = 'N' WHERE id = ?`,
-          [resignation.employee_id]
+          [resignation.employee_id],
         );
       }
     }
@@ -149,7 +202,7 @@ export const updateResignation = async (
 
 export const deleteResignation = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   const { id } = req.params;
 
@@ -166,7 +219,7 @@ export const deleteResignation = async (
 
 export const getEmployeeLifeLine = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   const { id } = req.params;
 
@@ -177,7 +230,7 @@ export const getEmployeeLifeLine = async (
        WHERE employee_id = ? 
        ORDER BY date DESC 
        LIMIT 1`,
-      [id]
+      [id],
     );
 
     res.json(rows[0] || { current_designation: "" });

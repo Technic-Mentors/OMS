@@ -48,6 +48,13 @@ export const addProject = async (
       return;
     }
 
+    if (new Date(startDate) > new Date(endDate)) {
+      res
+        .status(400)
+        .json({ message: "Start date cannot be greater than end date" });
+      return;
+    }
+
     const trimmedName = projectName.trim();
     const trimmedCategory = projectCategory.trim();
 
@@ -115,6 +122,13 @@ export const updateProject = async (
       !completionStatus
     ) {
       res.status(400).json({ message: "Required fields are missing" });
+      return;
+    }
+
+    if (new Date(startDate) > new Date(endDate)) {
+      res
+        .status(400)
+        .json({ message: "Start date cannot be greater than end date" });
       return;
     }
 

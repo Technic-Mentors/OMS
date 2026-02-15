@@ -3,7 +3,7 @@ import pool from "../database/db";
 
 export const withdrawEmployee = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     const id = req.params.id;
@@ -17,21 +17,20 @@ export const withdrawEmployee = async (
     }
 
     const [existingWithdrawal]: any = await pool.query(
-      "SELECT * FROM withdrawals WHERE employee_id = ?",
-      [id]
+      "SELECT * FROM withdrawals WHERE employee_id = ? AND withdrawStatus = 'Y'",
+      [id],
     );
 
     if (existingWithdrawal.length > 0) {
-      res.status(409).json({ message: "Employee is already withdrawn!" });
+      res.status(409).json({ message: "Employee is currently withdrawn!" });
       return;
     }
 
-   const insertQuery = `
+    const insertQuery = `
   INSERT INTO withdrawals (employee_id, withdrawDate, withdrawReason, withdrawStatus)
   VALUES (?, CURRENT_DATE, ?, 'Y')
 `;
-const values = [id, withdrawReason];
-
+    const values = [id, withdrawReason];
 
     const [result]: any = await pool.query(insertQuery, values);
 
@@ -50,7 +49,7 @@ const values = [id, withdrawReason];
 
 export const getWithdrawnEmployees = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     let { page = 1, limit = 10 } = req.query;
@@ -83,7 +82,7 @@ export const getWithdrawnEmployees = async (
       ORDER BY w.id DESC
       LIMIT ? OFFSET ?
       `,
-      [limitNum, offset]
+      [limitNum, offset],
     );
 
     res.status(200).json(rows);
@@ -98,7 +97,7 @@ export const getWithdrawnEmployees = async (
 
 export const reActiveEmployee = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     const employeeId = Number(req.params.id);
@@ -110,7 +109,7 @@ export const reActiveEmployee = async (
 
     const [existing]: any = await pool.query(
       "SELECT * FROM withdrawals WHERE employee_id = ? AND withdrawStatus = 'Y'",
-      [employeeId]
+      [employeeId],
     );
 
     if (existing.length === 0) {
@@ -122,7 +121,7 @@ export const reActiveEmployee = async (
 
     await pool.query(
       "UPDATE withdrawals SET withdrawStatus = 'N' WHERE employee_id = ?",
-      [employeeId]
+      [employeeId],
     );
 
     await pool.query("UPDATE login SET loginStatus = 'Y' WHERE id = ?", [

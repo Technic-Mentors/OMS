@@ -5,7 +5,9 @@ import { AuthenticatedRequest } from "../middleware/middleware";
 export const getAllPromotions = async (_: Request, res: Response) => {
   try {
     const [rows] = await pool.query(
-      "SELECT * FROM promotion WHERE is_deleted = 0 ORDER BY id DESC",
+      `SELECT * FROM promotion 
+   WHERE id IN (SELECT MAX(id) FROM promotion WHERE is_deleted = 0 GROUP BY employee_id)
+   ORDER BY id DESC`,
     );
     res.json(rows);
   } catch {
@@ -25,13 +27,15 @@ export const getMyPromotions = async (
 
     const [rows] = await pool.query(
       `SELECT * FROM promotion 
-       WHERE employee_id = ? AND is_deleted = 0
+       WHERE employee_id = ? 
+       AND is_deleted = 0
        ORDER BY id DESC`,
       [req.user.id],
     );
 
     res.json(rows);
-  } catch {
+  } catch (error) {
+    console.error(error);
     res.status(500).json({ message: "Failed to fetch promotions" });
   }
 };
@@ -59,12 +63,15 @@ export const getEmployeeLifeLine = async (req: Request, res: Response) => {
   }
 };
 
-export const getEmployeePromotionHistory = async (req: Request, res: Response) => {
+export const getEmployeePromotionHistory = async (
+  req: Request,
+  res: Response,
+) => {
   try {
     const { employeeId } = req.params;
     const [rows] = await pool.query(
       "SELECT * FROM promotion WHERE employee_id = ? AND is_deleted = 0 ORDER BY date DESC",
-      [employeeId]
+      [employeeId],
     );
     res.json(rows);
   } catch (error) {
@@ -84,11 +91,10 @@ export const addPromotion = async (
 
     const { id, current_designation, requested_designation, note, date } =
       req.body;
-
     const employee_id = req.user.role === "admin" ? id : req.user.id;
 
     const [userRows]: any = await pool.query(
-      "SELECT name FROM login WHERE id = ?",
+      "SELECT name, date as joining_date FROM login WHERE id = ?",
       [employee_id],
     );
 
@@ -97,26 +103,55 @@ export const addPromotion = async (
       return;
     }
 
-    await pool.query(
-      `INSERT INTO promotion 
-      (employee_id, employee_name, current_designation, requested_designation, note, date)
-      VALUES (?, ?, ?, ?, ?, ?)`,
-      [
-        employee_id,
-        userRows[0].name,
-        current_designation,
-        requested_designation,
-        note,
-        date,
-      ],
+    const joiningDate = new Date(userRows[0].joining_date);
+    const promotionDate = new Date(date);
+    if (promotionDate < joiningDate) {
+      res.status(400).json({
+        message: `Promotion date cannot be before joining date (${userRows[0].joining_date})`,
+      });
+      return;
+    }
+
+    const [existingPromotion]: any = await pool.query(
+      "SELECT id FROM promotion WHERE employee_id = ? AND is_deleted = 0",
+      [employee_id],
     );
 
-    res.status(201).json({ message: "Promotion request added" });
-  } catch {
-    res.status(500).json({ message: "Failed to add promotion" });
+    if (existingPromotion.length > 0) {
+      await pool.query(
+        `UPDATE promotion SET 
+          current_designation = ?, 
+          requested_designation = ?, 
+          note = ?, 
+          date = ?, 
+          approval = 'PENDING' 
+         WHERE employee_id = ? AND is_deleted = 0`,
+        [current_designation, requested_designation, note, date, employee_id],
+      );
+      res
+        .status(200)
+        .json({ message: "Promotion request updated successfully" });
+    } else {
+      await pool.query(
+        `INSERT INTO promotion 
+        (employee_id, employee_name, current_designation, requested_designation, note, date, approval)
+        VALUES (?, ?, ?, ?, ?, ?, 'PENDING')`,
+        [
+          employee_id,
+          userRows[0].name,
+          current_designation,
+          requested_designation,
+          note,
+          date,
+        ],
+      );
+      res.status(201).json({ message: "Promotion request added" });
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Failed to process promotion request" });
   }
 };
-
 
 export const updatePromotion = async (
   req: AuthenticatedRequest,
@@ -129,13 +164,8 @@ export const updatePromotion = async (
     }
 
     const promotionId = req.params.id;
-    const {
-      current_designation,
-      requested_designation,
-      note,
-      date,
-      approvalStatus,
-    } = req.body;
+    const { current_designation, requested_designation, note, date, approval } =
+      req.body;
 
     const [existing]: any = await pool.query(
       "SELECT * FROM promotion WHERE id = ? AND is_deleted = 0",
@@ -152,6 +182,13 @@ export const updatePromotion = async (
       return;
     }
 
+    if (existing[0].approval === "ACCEPTED") {
+      res
+        .status(400)
+        .json({ message: "Accepted promotion cannot be modified" });
+      return;
+    }
+
     await pool.query(
       `UPDATE promotion SET
         current_designation = ?,
@@ -165,12 +202,12 @@ export const updatePromotion = async (
         requested_designation,
         note,
         date,
-        approvalStatus,
+        approval,
         promotionId,
       ],
     );
 
-    if (approvalStatus === "ACCEPTED") {
+    if (approval === "ACCEPTED") {
       const promotion = existing[0];
       const empId = promotion.employee_id;
 

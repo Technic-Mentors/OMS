@@ -107,6 +107,21 @@ export const addAttendance = async (
   try {
     const formattedDate = toMySQLDate(date);
 
+    const [leaveCheck] = await pool.query<RowDataPacket[]>(
+      `SELECT id FROM leaves 
+       WHERE userId = ? 
+       AND leaveStatus = 'Approved' 
+       AND ? BETWEEN fromDate AND toDate`,
+      [userId, formattedDate],
+    );
+
+    if (leaveCheck.length > 0) {
+      res.status(400).json({
+        message: "User is on leave for this date. Cannot add attendance.",
+      });
+      return;
+    }
+
     const [existing] = await pool.query<RowDataPacket[]>(
       `SELECT id FROM attendance WHERE userId = ? AND date = ? AND status = 'Y'`,
       [userId, formattedDate],

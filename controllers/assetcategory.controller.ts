@@ -85,14 +85,24 @@ export const updateCategory = async (req: Request, res: Response):Promise<void> 
   }
 };
 
-export const deleteCategory = async (req: Request, res: Response) => {
+export const deleteCategory = async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
   try {
-    const [result] = await pool.query(
-      "DELETE FROM asset_categories WHERE id = ?",
-      [id],
+    const [linkedAssets]: any = await pool.query(
+      "SELECT id FROM assets WHERE category_id = ? LIMIT 1",
+      [id]
     );
-    res.json({ message: "Category deleted" });
+
+    if (linkedAssets.length > 0) {
+      res.status(400).json({ 
+        message: "Cannot delete category: It is currently assigned to one or more assets." 
+      });
+      return;
+    }
+
+    await pool.query("DELETE FROM asset_categories WHERE id = ?", [id]);
+    res.json({ message: "Category deleted successfully" });
+
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Server error" });

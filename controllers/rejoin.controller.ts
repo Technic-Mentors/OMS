@@ -40,6 +40,23 @@ export const getMyRejoinRequests = async (
   }
 };
 
+export const getUsersWithAcceptedResignation = async (req: Request, res: Response) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT l.id, l.name, r.designation, r.resignation_date
+       FROM resignation r
+       JOIN login l ON r.employee_id = l.id
+       WHERE r.approval_status = 'ACCEPTED' AND l.loginStatus = 'N'`
+    );
+
+    res.json({ users: rows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Failed to fetch users with accepted resignation" });
+  }
+};
+
+
 export const getMyLifeLine = async (
   req: AuthenticatedRequest,
   res: Response,
@@ -90,8 +107,10 @@ export const addRejoinRequest = async (
 ): Promise<void> => {
   const { id, note, rejoin_date } = req.body;
 
-  if (!id || !rejoin_date)
-    res.status(400).json({ message: "Employee and rejoin date are required" });
+  if (!id || !rejoin_date){
+      res.status(400).json({ message: "Employee and rejoin date are required" });
+      return;
+    };
 
   try {
     const [employeeRows] = await pool.query(
@@ -150,6 +169,7 @@ export const updateRejoinRequest = async (
 
     if (!Array.isArray(rejoinRows) || rejoinRows.length === 0) {
       res.status(404).json({ message: "Rejoin request not found" });
+      return;
     }
 
     const employee_id = (rejoinRows as any)[0].employee_id;

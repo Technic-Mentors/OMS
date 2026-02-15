@@ -10,6 +10,21 @@ export const getAttendance = async (
     const userId = req.params.id;
     const today = moment.tz("Asia/Karachi").format("YYYY-MM-DD");
 
+    const [leaveRows]: any = await pool.query(
+      `SELECT leaveReason FROM leaves 
+       WHERE userId = ? AND leaveStatus = 'Approved' 
+       AND ? BETWEEN fromDate AND toDate LIMIT 1`,
+      [userId, today],
+    );
+
+    if (leaveRows.length > 0) {
+      res.status(200).json({
+        attendanceStatus: "Leave",
+        message: `User is on Approved Leave: ${leaveRows[0].leaveReason}`,
+      });
+      return;
+    }
+
     const [holidayRows]: any = await pool.query(
       `SELECT holiday FROM holidays 
        WHERE ? BETWEEN fromDate AND toDate AND holidayStatus = 'Y' LIMIT 1`,
@@ -62,6 +77,20 @@ export const markAttendance = async (
     const today = moment.tz("Asia/Karachi").format("YYYY-MM-DD");
     const currentTime = moment.tz("Asia/Karachi").format("HH:mm:ss");
 
+    const [leaveRows]: any = await pool.query(
+      `SELECT id FROM leaves 
+       WHERE userId = ? AND leaveStatus = 'Approved' 
+       AND ? BETWEEN fromDate AND toDate LIMIT 1`,
+      [userId, today],
+    );
+
+    if (leaveRows.length > 0) {
+      res.status(400).json({
+        message: "You are on leave today. Attendance cannot be marked.",
+      });
+      return;
+    }
+
     const [holidayRows]: any = await pool.query(
       `SELECT holiday FROM holidays 
        WHERE ? BETWEEN fromDate AND toDate AND holidayStatus = 'Y' LIMIT 1`,
@@ -110,21 +139,21 @@ export const markAttendance = async (
     const clockInMoment = moment(record.clockIn, "HH:mm:ss");
     const clockOutMoment = moment(currentTime, "HH:mm:ss");
 
-    
     const durationMinutes = clockOutMoment.diff(clockInMoment, "minutes");
 
     const durationMilliseconds = clockOutMoment.diff(clockInMoment);
     const diff = moment.utc(durationMilliseconds).format("HH:mm:ss");
 
-    let finalStatus = record.attendanceStatus; 
+    let finalStatus = record.attendanceStatus;
 
-    
     if (durationMinutes < 1) {
       finalStatus = "Absent";
     } else if (durationMinutes <= 120) {
       finalStatus = "Short Leave";
     } else if (currentTime < halfLeave) {
-      finalStatus = "Present";
+      if (record.attendanceStatus !== "Late") {
+        finalStatus = "Present";
+      }
     }
 
     await pool.query(

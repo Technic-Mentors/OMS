@@ -9,7 +9,7 @@ interface AuthenticatedRequest extends Request {
 export const getAllProgress = async (req: Request, res: Response) => {
   try {
     const query = `
-  SELECT 
+SELECT 
   pr.id,
   pr.employee_id,
   COALESCE(e.employee_name, u.name) AS employeeName,
@@ -22,6 +22,7 @@ FROM progress pr
 LEFT JOIN employee_lifeline e ON pr.employee_id = e.employee_id
 LEFT JOIN login u ON pr.employee_id = u.id
 LEFT JOIN projects p ON pr.projectId = p.id
+WHERE pr.progressStatus = 'Y'
 ORDER BY pr.id DESC
 `;
 
@@ -149,12 +150,13 @@ export const addProgress = async (
     const [existingProgress] = await pool.query<RowDataPacket[]>(
       `SELECT id FROM progress 
        WHERE employee_id = ? AND date = ?`,
-      [employee_id, date]
+      [employee_id, date],
     );
 
     if (Array.isArray(existingProgress) && existingProgress.length > 0) {
-      res.status(409).json({ 
-        message: "Progress already exists for this user on the selected date. Only one progress entry per day is allowed." 
+      res.status(409).json({
+        message:
+          "Progress already exists for this user on the selected date. Only one progress entry per day is allowed.",
       });
       return;
     }
@@ -180,12 +182,12 @@ export const updateProgress = async (req: Request, res: Response) => {
     const [existingProgress] = await pool.query<RowDataPacket[]>(
       `SELECT id FROM progress 
        WHERE employee_id = ? AND date = ? AND id != ?`,
-      [employee_id, date, id]
+      [employee_id, date, id],
     );
 
     if (Array.isArray(existingProgress) && existingProgress.length > 0) {
-      res.status(409).json({ 
-        message: "Progress already exists for this user on the selected date." 
+      res.status(409).json({
+        message: "Progress already exists for this user on the selected date.",
       });
       return;
     }
@@ -215,19 +217,26 @@ export const deleteProgress = async (
   req: Request,
   res: Response,
 ): Promise<void> => {
-  const id = req.params.id;
+  const { id } = req.params;
 
   if (!id) {
     res.status(400).json({ message: "Progress ID is required" });
+    return;
   }
 
   try {
-    const [result] = await pool.query("UPDATE FROM progress WHERE id = ?", [
-      id,
-    ]);
+    const [result]: any = await pool.query(
+      `
+      UPDATE progress
+      SET progressStatus = 'N'
+      WHERE id = ?
+      `,
+      [id],
+    );
 
-    if (!id) {
+    if (result.affectedRows === 0) {
       res.status(404).json({ message: "Progress not found" });
+      return;
     }
 
     res.status(200).json({ message: "Progress deleted successfully" });

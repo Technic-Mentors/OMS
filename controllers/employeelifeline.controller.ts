@@ -24,7 +24,7 @@ export const getUsers = async (req: Request, res: Response): Promise<void> => {
       `SELECT id ,name
        FROM login
        WHERE loginStatus = 'Y'
-       ORDER BY id DESC`
+       ORDER BY id DESC`,
     );
 
     const usersForDropdown = rows.map((user) => ({
@@ -60,11 +60,43 @@ export const addEmpll = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
+    const [userRows]: any = await pool.query(
+      `SELECT date FROM login WHERE id = ?`,
+      [employee_id],
+    );
+
+    if (!userRows.length) {
+      res.status(404).json({ message: "Employee not found" });
+      return;
+    }
+
+    const joiningDate = new Date(userRows[0].date);
+    const lifelineDate = new Date(date);
+
+    if (lifelineDate < joiningDate) {
+      res.status(400).json({
+        message: "Lifeline date cannot be before employee joining date",
+      });
+      return;
+    }
+
+    const [existingRows]: any = await pool.query(
+      `SELECT id FROM employee_lifeline WHERE employee_id = ?`,
+      [employee_id]
+    );
+
+    if (existingRows.length > 0) {
+      res.status(400).json({ 
+        message: "A lifeline record already exists for this employee." 
+      });
+      return;
+    }
+
     const [result]: any = await pool.query(
       `INSERT INTO employee_lifeline 
         (employee_id, employee_name, email, contact, position, date)
        VALUES (?, ?, ?, ?, ?, ?)`,
-      [employee_id, employeeName, email, contact, position, date]
+      [employee_id, employeeName, email, contact, position, date],
     );
 
     const [rows]: any = await pool.query(
@@ -77,7 +109,7 @@ export const addEmpll = async (req: Request, res: Response): Promise<void> => {
          date
        FROM employee_lifeline
        WHERE id = ?`,
-      [result.insertId]
+      [result.insertId],
     );
 
     const newLifeLine = rows[0];
@@ -97,12 +129,13 @@ export const getEmpll = async (req: Request, res: Response): Promise<void> => {
     const [rows]: any = await pool.query(
       `SELECT 
          id, 
-         employee_name AS employeeName, 
+         employee_name AS employeeName,
+         email, 
          contact, 
          position, 
          date
        FROM employee_lifeline 
-       ORDER BY id DESC`
+       ORDER BY id DESC`,
     );
 
     const formattedRows = rows.map((row: any) => ({
@@ -126,7 +159,7 @@ export const getEmpll = async (req: Request, res: Response): Promise<void> => {
 
 export const updateEmpll = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     const { id } = req.params;
@@ -142,11 +175,38 @@ export const updateEmpll = async (
       return;
     }
 
+    const [empRows]: any = await pool.query(
+      `SELECT employee_id FROM employee_lifeline WHERE id = ?`,
+      [id],
+    );
+
+    if (!empRows.length) {
+      res.status(404).json({ message: "Employee LifeLine not found" });
+      return;
+    }
+
+    const employee_id = empRows[0].employee_id;
+
+    const [userRows]: any = await pool.query(
+      `SELECT date FROM login WHERE id = ?`,
+      [employee_id],
+    );
+
+    const joiningDate = new Date(userRows[0].date);
+    const lifelineDate = new Date(date);
+
+    if (lifelineDate < joiningDate) {
+      res.status(400).json({
+        message: "Lifeline date cannot be before employee joining date",
+      });
+      return;
+    }
+
     const [result]: any = await pool.query(
       `UPDATE employee_lifeline
        SET employee_name = ?, contact = ?, position = ?, date = ?
        WHERE id = ?`,
-      [employeeName, contact, position, formattedDate, id]
+      [employeeName, contact, position, formattedDate, id],
     );
 
     if (result.affectedRows === 0) {
@@ -158,12 +218,12 @@ export const updateEmpll = async (
       `SELECT id, employee_name AS employeeName, contact, position, date
        FROM employee_lifeline
        WHERE id = ?`,
-      [id]
+      [id],
     );
 
     const updatedLifeLine = rows[0];
     updatedLifeLine.date = updatedLifeLine.date
-      ? new Date(updatedLifeLine.date).toLocaleDateString('sv-SE')
+      ? new Date(updatedLifeLine.date).toLocaleDateString("sv-SE")
       : null;
 
     res.status(200).json({
@@ -178,14 +238,14 @@ export const updateEmpll = async (
 
 export const deleteEmpll = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     const { id } = req.params;
 
     const [result]: any = await pool.query(
       `DELETE FROM employee_lifeline WHERE id = ?`,
-      [id]
+      [id],
     );
 
     if (result.affectedRows === 0) {

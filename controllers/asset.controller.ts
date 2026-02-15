@@ -4,7 +4,7 @@ import pool from "../database/db";
 export const getAssets = async (req: Request, res: Response) => {
   try {
     const [rows] = await pool.query(
-      `SELECT a.id, a.asset_name, c.category_name
+      `SELECT a.id, a.asset_name, a.category_id, a.description, a.date, c.category_name
        FROM assets a
        JOIN asset_categories c ON a.category_id = c.id`,
     );
@@ -15,9 +15,9 @@ export const getAssets = async (req: Request, res: Response) => {
   }
 };
 
-export const addAsset = async (req: Request, res: Response):Promise <void> => {
+export const addAsset = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { asset_name, category_id } = req.body;
+    const { asset_name, category_id, description, date } = req.body;
 
     const [existing]: any = await pool.query(
       `SELECT id FROM assets WHERE LOWER(asset_name) = LOWER(?)`,
@@ -30,9 +30,9 @@ export const addAsset = async (req: Request, res: Response):Promise <void> => {
     }
 
     const [result] = await pool.query(
-      `INSERT INTO assets (asset_name, category_id) VALUES (?, ?)`,
-      [asset_name, category_id],
-    );
+  `INSERT INTO assets (asset_name, category_id, description, date) VALUES (?, ?, ?, ?)`,
+  [asset_name, category_id, description, date],
+);
     res.json({ message: "Asset added", id: (result as any).insertId });
   } catch (err) {
     console.error(err);
@@ -40,10 +40,10 @@ export const addAsset = async (req: Request, res: Response):Promise <void> => {
   }
 };
 
-export const updateAsset = async (req: Request, res: Response):Promise <void> => {
+export const updateAsset = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const { asset_name, category_id } = req.body;
+    const { asset_name, category_id, description, date } = req.body;
 
     const [existing]: any = await pool.query(
       `SELECT id FROM assets WHERE LOWER(asset_name) = LOWER(?) AND id != ?`,
@@ -56,9 +56,9 @@ export const updateAsset = async (req: Request, res: Response):Promise <void> =>
     }
 
     await pool.query(
-      `UPDATE assets SET asset_name = ?, category_id = ? WHERE id = ?`,
-      [asset_name, category_id, id],
-    );
+  `UPDATE assets SET asset_name = ?, category_id = ?, description = ?, date = ? WHERE id = ?`,
+  [asset_name, category_id, description, date, id],
+);
     res.json({ message: "Asset updated" });
   } catch (err) {
     console.error(err);

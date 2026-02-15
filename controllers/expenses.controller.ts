@@ -115,7 +115,7 @@ export const updateExpense = async (
   res: Response,
 ): Promise<void> => {
   const { id } = req.params;
-  const { expenseName, expenseCategoryId, amount, date } = req.body;
+  const { expenseName, expenseCategoryId, amount, addedBy, date } = req.body;
 
   const formattedDate = new Date(date).toISOString().split("T")[0];
 
@@ -139,10 +139,11 @@ export const updateExpense = async (
       SET expenseName = ?,
           expenseCategoryId = ?,
           amount = ?,
+          addedBy = ?,
           date = ?
       WHERE id = ?
       `,
-      [expenseName, expenseCategoryId, amount, formattedDate, id],
+      [expenseName, expenseCategoryId, amount, formattedDate, addedBy, id],
     );
 
     res.status(200).json({ message: "Expense updated successfully" });

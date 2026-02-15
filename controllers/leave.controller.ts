@@ -19,7 +19,7 @@ export const getUsersLeaves = async (req: RequestWithUser, res: Response) => {
         l.id,
         l.leaveSubject,
         l.leaveReason,
-        l.date,
+        l.fromDate, l.toDate,
         l.leaveStatus,
         u.name
       FROM leaves l
@@ -48,7 +48,7 @@ export const getMyLeaves = async (req: RequestWithUser, res: Response) => {
         l.id,
         l.leaveSubject,
         l.leaveReason,
-        l.date,
+        l.fromDate, l.toDate,
         l.leaveStatus,
         u.name
       FROM leaves l
@@ -89,9 +89,9 @@ export const addLeave = async (req: RequestWithUser, res: Response) => {
       return res.status(401).json({ message: "Unauthorized" });
     }
 
-    const { leaveSubject, date, leaveReason, employee_id } = req.body;
+    const { leaveSubject, fromDate, toDate,  leaveReason, employee_id } = req.body;
 
-    if (!leaveSubject || !date || !leaveReason) {
+    if (!leaveSubject || !fromDate || !toDate || !leaveReason) {
       return res.status(400).json({ message: "Missing required fields" });
     }
 
@@ -111,23 +111,23 @@ export const addLeave = async (req: RequestWithUser, res: Response) => {
       userId = req.user.id;
     }
 
-    const [existingLeave] = await pool.query(
-      `SELECT id FROM leaves WHERE userId = ? AND date = ? AND leaveStatus != 'Rejected'`,
-      [userId, date],
-    );
+    const [existing] = await pool.query(
+  `SELECT id FROM leaves WHERE userId = ? AND leaveStatus != 'Rejected' 
+   AND ((fromDate <= ? AND toDate >= ?) OR (fromDate <= ? AND toDate >= ?))`,
+  [userId, toDate, fromDate, fromDate, toDate]
+);
 
-    if ((existingLeave as any).length > 0) {
+    if ((existing as any).length > 0) {
       return res
         .status(400)
         .json({ message: "Leave already applied  for this user  today" });
     }
 
     await pool.query(
-      `INSERT INTO leaves 
-        (userId, leaveSubject, date, leaveReason, leaveStatus)
-       VALUES (?, ?, ?, ?, ?)`,
-      [userId, leaveSubject, date, leaveReason, "Pending"],
-    );
+  `INSERT INTO leaves (userId, leaveSubject, fromDate, toDate, leaveReason, leaveStatus)
+   VALUES (?, ?, ?, ?, ?, ?)`,
+  [userId, leaveSubject, fromDate, toDate, leaveReason, "Pending"]
+);
 
     return res.status(201).json({ message: "Leave added successfully" });
   } catch (error) {
@@ -144,13 +144,13 @@ export const updateLeave = async (
 ): Promise<void> => {
   try {
     const leaveId = Number(req.params.id);
-    const { leaveStatus, date, leaveSubject, leaveReason } = req.body;
+    const { leaveStatus, fromDate, toDate, leaveSubject, leaveReason } = req.body;
 
     await pool.query(
       `UPDATE leaves
-       SET date = ?, leaveStatus = ?, leaveSubject = ?, leaveReason = ?
+       SET fromDate = ?, toDate = ?, leaveStatus = ?, leaveSubject = ?, leaveReason = ?
        WHERE id = ?`,
-      [date, leaveStatus, leaveSubject, leaveReason, leaveId],
+      [fromDate,toDate , leaveStatus, leaveSubject, leaveReason, leaveId],
     );
 
     const [leaveRows] = await pool.query<RowDataPacket[]>(
@@ -162,8 +162,8 @@ export const updateLeave = async (
       const { userId } = leaveRows[0];
 
       const [attendanceRows] = await pool.query<RowDataPacket[]>(
-        `SELECT id FROM attendance WHERE userId = ? AND date = ?`,
-        [userId, date],
+        `SELECT id FROM attendance WHERE userId = ? AND date = ? `,
+        [userId, fromDate , toDate],
       );
 
       if (attendanceRows.length > 0) {
@@ -172,21 +172,22 @@ export const updateLeave = async (
            SET attendanceStatus = ?, 
                leaveStatus = ?,
                leaveReason = ?
-           WHERE userId = ? AND date = ?`,
+           WHERE userId = ? AND date BETWEEN ? AND ? `,
           [
             leaveStatus === "Approved" ? "Leave" : "Absent",
             leaveStatus,
             leaveReason,
             userId,
-            date,
+            fromDate,
+            toDate,
           ],
         );
       } else if (leaveStatus === "Approved") {
         await pool.query(
           `INSERT INTO attendance
-           (userId, date, attendanceStatus, leaveStatus, leaveReason, status)
-           VALUES (?, ?, 'Leave', 'Approved', ?, 'Y')`,
-          [userId, date, leaveReason],
+           (userId, fromDate, toDate, attendanceStatus, leaveStatus, leaveReason, status)
+           VALUES (?, ?, ? , 'Leave', 'Approved', ?, 'Y')`,
+          [userId, fromDate, toDate, leaveReason],
         );
       }
     }

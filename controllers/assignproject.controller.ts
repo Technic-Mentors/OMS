@@ -64,7 +64,7 @@ export const getMyAssignProjects = async (req: Request, res: Response) => {
 
 export const addAssignProject = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     const { employee_id, projectId, date } = req.body;
@@ -75,7 +75,28 @@ export const addAssignProject = async (
         .json({ message: "employeeId and projectId are required" });
     }
 
+    const [userRows]: any = await pool.query(
+      "SELECT date FROM login WHERE id = ?",
+      [employee_id],
+    );
+
+    if (userRows.length === 0) {
+      res.status(404).json({ message: "Employee not found" });
+      return;
+    }
+
+    const joiningDate = new Date(userRows[0].date);
     const assignDate = date ? new Date(date) : new Date();
+
+    joiningDate.setHours(0, 0, 0, 0);
+    assignDate.setHours(0, 0, 0, 0);
+
+    if (assignDate < joiningDate) {
+      res.status(400).json({
+        message: `Project assign date cannot be earlier than employee joining date (${userRows[0].date})`,
+      });
+      return;
+    }
 
     const query = `
       INSERT INTO assignedprojects (employee_id, projectId, date, assignStatus)
@@ -105,7 +126,7 @@ export const addAssignProject = async (
 
 export const editAssignProject = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     const { id } = req.params;
@@ -115,6 +136,29 @@ export const editAssignProject = async (
       res
         .status(400)
         .json({ message: "employee_id and projectId are required" });
+    }
+
+    const [userRows]: any = await pool.query(
+      "SELECT date FROM login WHERE id = ?",
+      [employee_id],
+    );
+
+    if (userRows.length === 0) {
+      res.status(404).json({ message: "Employee not found" });
+      return;
+    }
+
+    const joiningDate = new Date(userRows[0].date);
+    const assignDate = new Date(date);
+
+    joiningDate.setHours(0, 0, 0, 0);
+    assignDate.setHours(0, 0, 0, 0);
+
+    if (assignDate < joiningDate) {
+      res.status(400).json({
+        message: `Cannot update: Assignment date is before employee joining date (${userRows[0].date})`,
+      });
+      return;
     }
 
     const query = `

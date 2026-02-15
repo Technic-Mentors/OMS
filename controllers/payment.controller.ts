@@ -4,18 +4,19 @@ import pool from "../database/db";
 export const getPayments = async (req: Request, res: Response) => {
   try {
     const [rows] = await pool.query(`
-      SELECT 
-        p.id,
-        c.customerName AS customerId,
-        p.amount,
-        p.paymentMethod,
-        p.description,
-        p.date
-      FROM payments p
-      LEFT JOIN customers c ON c.id = p.customerId
-      WHERE p.paymentStatus = 'Y'
-      ORDER BY p.id ASC
-    `);
+  SELECT 
+    p.id,
+    p.customerId,
+    c.customerName,
+    p.amount,
+    p.paymentMethod,
+    p.description,
+    p.date
+  FROM payments p
+  LEFT JOIN customers c ON c.id = p.customerId
+  WHERE p.paymentStatus = 'Y'
+  ORDER BY p.id ASC
+`);
 
     res.status(200).json(rows);
   } catch (error) {
@@ -34,7 +35,7 @@ export const addPayment = async (req: Request, res: Response) => {
       `INSERT INTO payments 
        (paymentMethod, customerId, description, amount, date)
        VALUES (?, ?, ?, ?, ?)`,
-      [paymentMethod, customerId, description, amount, formattedDate]
+      [paymentMethod, customerId, description, amount, formattedDate],
     );
 
     res.status(201).json({ message: "Payment added successfully" });
@@ -55,7 +56,7 @@ export const updatePayment = async (req: Request, res: Response) => {
       `UPDATE payments 
        SET paymentMethod = ?, customerId = ?, description = ?, amount = ?, date = ?
        WHERE id = ?`,
-      [paymentMethod, customerId, description, amount, formattedDate, id]
+      [paymentMethod, customerId, description, amount, formattedDate, id],
     );
 
     res.status(200).json({ message: "Payment updated successfully" });

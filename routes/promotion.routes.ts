@@ -14,13 +14,11 @@ const router = Router();
 
 router.get("/admin/getPromotions", authenticateToken, isAdmin, getAllPromotions);
 router.get("/user/getMyPromotions", authenticateToken, getMyPromotions);
-router.get("/admin/getPromotionHistory/:employeeId", authenticateToken, isAdmin, getEmployeePromotionHistory);
-router.post("/admin/addPromotion", authenticateToken, isAdmin, addPromotion);
+router.get("/getPromotionHistory/:employeeId", authenticateToken, getEmployeePromotionHistory);
 router.post("/user/addPromotion", authenticateToken, addPromotion);
 router.put("/admin/updatePromotion/:id", authenticateToken, isAdmin, updatePromotion);
 router.get("/admin/getEmployeeLifeLine", authenticateToken, isAdmin, getEmployeeLifeLine);
 router.put("/user/updatePromotion/:id", authenticateToken, updatePromotion);
-router.patch("/admin/deletePromotion/:id", authenticateToken, isAdmin, deletePromotion);
 router.patch("/user/deletePromotion/:id", authenticateToken,  deletePromotion);
 
 

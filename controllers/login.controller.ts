@@ -33,7 +33,6 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 
       res.json({
         status: 200,
-        message: "Login successful",
         token,
         userId: HARD_ADMIN_USERID,
         name: HARD_ADMIN_NAME,

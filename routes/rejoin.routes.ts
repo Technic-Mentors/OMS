@@ -2,6 +2,7 @@ import { Router } from "express";
 import {
   getAllRejoinRequests,
   getMyRejoinRequests,
+  getUsersWithAcceptedResignation,
   getMyLifeLine,
   getMyResignation,
   addRejoinRequest,
@@ -20,7 +21,7 @@ router.get(
 router.post("/admin/addRejoin", authenticateToken, addRejoinRequest);
 router.put("/admin/updateRejoin/:id", authenticateToken, updateRejoinRequest);
 router.patch("/admin/deleteRejoin/:id", authenticateToken, deleteRejoinRequest);
-
+router.get("/admin/getUsersWithAcceptedResignation", authenticateToken, getUsersWithAcceptedResignation);
 router.get("/user/getMyRejoinRequests", authenticateToken, getMyRejoinRequests);
 router.get("/user/getMyLifeLine", authenticateToken, getMyLifeLine);
 router.get("/user/getMyResignation", authenticateToken, getMyResignation);

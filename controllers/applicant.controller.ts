@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import pool from "../database/db";
+import { RowDataPacket } from "mysql2";
 
 export const getApplicants = async (req: Request, res: Response) => {
   try {
@@ -9,8 +10,9 @@ export const getApplicants = async (req: Request, res: Response) => {
 
     const offset = (page - 1) * limit;
 
-    let query = `SELECT a.id, a.applicant_name,   a.applicant_contact,
- a.applied_date, j.job_title AS job, a.applicant_status AS status
+    let query = `SELECT a.id, a.applicant_name, a.fatherName , a.email ,  a.applicant_contact,
+ a.applied_date, j.job_title AS job,   a.interviewPhase,
+ a.applicant_status AS status
                  FROM applicants a
                  JOIN jobs j ON a.job_id = j.id
                  WHERE a.status = 'Y'`;
@@ -31,7 +33,7 @@ export const getApplicants = async (req: Request, res: Response) => {
       `SELECT COUNT(*) as total FROM applicants WHERE status='Y' ${
         search ? "AND applicant_name LIKE ?" : ""
       }`,
-      search ? [`%${search}%`] : []
+      search ? [`%${search}%`] : [],
     );
 
     const total = (totalResult as any)[0].total;
@@ -43,25 +45,58 @@ export const getApplicants = async (req: Request, res: Response) => {
   }
 };
 
-export const addApplicant = async (req: Request, res: Response) => {
+export const addApplicant = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
   try {
     const {
       applicant_name,
+      fatherName,
+      email,
       applicant_contact,
       applied_date,
       job_id,
+      interviewPhase,
       applicant_status = "pending",
     } = req.body;
 
+    const [existing]: any = await pool.query(
+      "SELECT email, applicant_contact FROM applicants WHERE (email = ? OR applicant_contact = ?) AND status = 'Y'",
+      [email, applicant_contact],
+    );
+
+    if (existing.length > 0) {
+      if (
+        existing[0].email === email &&
+        existing[0].applicant_contact === applicant_contact
+      ) {
+        res.status(400).json({ message: "Email and contact already exists" });
+        return;
+      }
+
+      if (existing[0].email === email) {
+        res.status(400).json({ message: "Email already exists" });
+        return;
+      }
+      if (existing[0].applicant_contact === applicant_contact) {
+        res.status(400).json({ message: "Contact number already exists" });
+      }
+      return;
+    }
+
     const [result] = await pool.query(
-      "INSERT INTO applicants (applicant_name, applicant_contact, applied_date, job_id , applicant_status) VALUES (?, ?, ?, ? , 'pending')",
+      "INSERT INTO applicants (applicant_name, fatherName, email, applicant_contact, applied_date, job_id, interviewPhase, applicant_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
       [
         applicant_name,
+        fatherName,
+        email,
         applicant_contact,
         applied_date,
         job_id,
+        interviewPhase,
         applicant_status,
-      ]
+      ],
     );
 
     res.status(201).json({
@@ -74,41 +109,68 @@ export const addApplicant = async (req: Request, res: Response) => {
   }
 };
 
-export const updateApplicant = async (req: Request, res: Response) => {
+export const updateApplicant = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
   try {
     const { id } = req.params;
     const {
       applicant_name,
+      fatherName,
+      email,
       applicant_contact,
       applied_date,
       job_id,
+      interviewPhase,
       applicant_status,
     } = req.body;
 
-    const formattedDate = applied_date ? applied_date.split("T")[0] : null;
+    const [existing] = await pool.query<RowDataPacket[]>(
+      "SELECT email, applicant_contact FROM applicants WHERE (email = ? OR applicant_contact = ?) AND id != ? AND status = 'Y'",
+      [email, applicant_contact, id],
+    );
 
-    if (job_id) {
-      await pool.query(
-        `UPDATE applicants
-         SET applicant_name=?, applicant_contact=?, applied_date=?, job_id=?, applicant_status=?
-         WHERE id=?`,
-        [
-          applicant_name,
-          applicant_contact,
-          formattedDate,
-          job_id,
-          applicant_status,
-          id,
-        ]
-      );
-    } else {
-      await pool.query(
-        `UPDATE applicants
-         SET applicant_name=?, applicant_contact=?, applied_date=?, applicant_status=?
-         WHERE id=?`,
-        [applicant_name, applicant_contact, formattedDate, applicant_status, id]
-      );
+    if (existing.length > 0) {
+      if (
+        existing[0].email === email &&
+        existing[0].applicant_contact === applicant_contact
+      ) {
+        res.status(400).json({ message: "Email and contact already exists" });
+        return;
+      }
+
+      if (existing[0].email === email) {
+        res.status(400).json({ message: "Email already exists" });
+        return;
+      }
+      if (existing[0].applicant_contact === applicant_contact) {
+        res.status(400).json({ message: "Contact number already exists" });
+      }
+      return;
     }
+
+    const formattedDate =
+      typeof applied_date === "string"
+        ? applied_date.split("T")[0]
+        : applied_date;
+
+    const query = `
+      UPDATE applicants 
+      SET applicant_name=?, fatherName=?, email=?, applicant_contact=?, applied_date=?, job_id=COALESCE(?, job_id), interviewPhase=?, applicant_status=?
+      WHERE id=?`;
+
+    await pool.query(query, [
+      applicant_name,
+      fatherName,
+      email,
+      applicant_contact,
+      formattedDate,
+      job_id || null,
+      interviewPhase,
+      applicant_status,
+      id,
+    ]);
 
     res.json({ message: "Applicant updated successfully" });
   } catch (error) {
