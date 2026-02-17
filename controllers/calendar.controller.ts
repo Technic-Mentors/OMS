@@ -1,12 +1,11 @@
 import { Request, Response } from "express";
 import pool from "../database/db";
-import { AuthenticatedRequest } from "../middleware/middleware";
-
+import { ResultSetHeader } from "mysql2";
 
 export const getAllCalendarSessions = async (req: Request, res: Response) => {
   try {
     const [rows] = await pool.query(
-      "SELECT * FROM calendarsession ORDER BY id ASC"
+      "SELECT * FROM calendarsession ORDER BY id ASC",
     );
     res.status(200).json(rows);
   } catch (error) {
@@ -15,52 +14,155 @@ export const getAllCalendarSessions = async (req: Request, res: Response) => {
   }
 };
 
-
 export const addCalendarSession = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
-    const { year, month, calendarStatus } = req.body;
+    const { session_name, year, month } = req.body;
 
-    const now = new Date();
-    const currentYear = now.getFullYear().toString();
-    const currentMonth = now.toLocaleString("default", { month: "long" });
-
-    if (year !== currentYear || month !== currentMonth) {
+    if (!session_name || !year || !month) {
       res.status(400).json({
-        message: "Only current month calendar session can be added",
+        message: "Session name, year, and month are required",
       });
       return;
     }
 
-    const [existing] = await pool.query(
-      "SELECT id FROM calendarsession WHERE year = ? AND month = ?",
-      [currentYear, currentMonth]
+    const startMonthIndex = new Date(`${month} 1, ${year}`).getMonth();
+    const startYear = parseInt(year);
+
+    const sessionsToInsert: any[] = [];
+
+    for (let i = 0; i < 12; i++) {
+      const targetDate = new Date(startYear, startMonthIndex + i, 1);
+
+      const targetMonthName = targetDate.toLocaleString("default", {
+        month: "long",
+      });
+
+      const targetYearNum = targetDate.getFullYear();
+
+      sessionsToInsert.push([
+        session_name,
+        targetYearNum.toString(),
+        targetMonthName,
+        "InActive",
+      ]);
+    }
+
+    await pool.query(
+      "INSERT INTO calendarsession (session_name, year, month, calendarStatus) VALUES ?",
+      [sessionsToInsert],
     );
 
-    if ((existing as any[]).length > 0) {
-      res.status(409).json({
-        message: "Current month calendar session already exists",
-      });
+    res.status(201).json({
+      message: "Calendar session added successfully",
+      insertedCount: sessionsToInsert.length,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Error adding calendar session" });
+  }
+};
+
+export const updateCalendarSession = async (req: Request, res: Response) => {
+  try {
+    const { session_name, year, month } = req.body;
+    const { id } = req.params;
+
+    if (!session_name || !year || !month) {
+      res
+        .status(400)
+        .json({ message: "Session name, year, and month are required" });
       return;
     }
 
     const [result] = await pool.query(
-      "INSERT INTO calendarsession (year, month, calendarStatus) VALUES (?, ?, ?)",
-      [year, month, calendarStatus]
+      "UPDATE calendarsession SET session_name = ?, year = ?, month = ? WHERE id = ?",
+      [session_name, year, month, id],
     );
 
-    res.status(201).json({
-      message: "Calendar session added",
-      id: (result as any).insertId,
-    });
-    return;
+    res.status(200).json({ message: "Calendar session updated" });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: "Error adding calendar session" });
-    return;
+    res.status(500).json({ message: "Error updating calendar session" });
   }
 };
 
+export const activateCalendarSession = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  try {
+    const { session_name, year, month } = req.body;
 
+    if (!session_name || !year || !month) {
+      res.status(400).json({ message: "All fields required" });
+      return;
+    }
+
+    // Set all months to InActive except Processed
+    await pool.query(
+      "UPDATE calendarsession SET calendarStatus = 'InActive' WHERE LOWER(session_name) = LOWER(?) AND calendarStatus != 'Processed'",
+      [session_name],
+    );
+
+    // Activate the selected month
+    await pool.query(
+      `UPDATE calendarsession
+   SET calendarStatus = 'Active'
+   WHERE LOWER(TRIM(session_name)) = LOWER(?)
+   AND year = ?
+   AND LOWER(TRIM(month)) = LOWER(?)`,
+      [session_name.trim(), parseInt(year), month.trim()],
+    );
+
+    // Return all rows for that session so frontend shows correct status
+    const [updatedRows]: any = await pool.query(
+      "SELECT * FROM calendarsession WHERE LOWER(session_name) = LOWER(?) ORDER BY year, FIELD(month,'January','February','March','April','May','June','July','August','September','October','November','December')",
+      [session_name],
+    );
+
+    res.status(200).json({
+      message: "Session activated successfully",
+      data: updatedRows,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Error activating session" });
+  }
+};
+
+export const deleteCalendarSession = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  try {
+    const { id } = req.params;
+
+    const [rows]: any = await pool.query(
+      "SELECT session_name FROM calendarsession WHERE id = ?",
+      [id],
+    );
+
+    if (rows.length === 0) {
+      res.status(404).json({ message: "Session not found" });
+      return;
+    }
+
+    const session_name = rows[0].session_name;
+
+    const [result] = await pool.query<ResultSetHeader>(
+      "DELETE FROM calendarsession WHERE session_name = ?",
+      [session_name],
+    );
+
+    res.status(200).json({
+      message: "Calendar session deleted",
+      deletedCount: result.affectedRows,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Error deleting calendar session" });
+  }
+};

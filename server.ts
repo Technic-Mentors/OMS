@@ -42,6 +42,8 @@ import promotionRoutes from "./routes/promotion.routes";
 import resignationRoutes from "./routes/resignation.routes";
 import rejoinRoutes from "./routes/rejoin.routes";
 import userDashboardRoutes from "./routes/userDashboard.routes";
+import salaryCycleRoutes from "./routes/salaryCycle.routes";
+
 
 
 import session from "express-session";
@@ -105,6 +107,8 @@ app.use("/api", promotionRoutes);
 app.use("/api", resignationRoutes);
 app.use("/api", rejoinRoutes);
 app.use("/api", userDashboardRoutes);
+app.use("/api", salaryCycleRoutes);
+
 
 
 app.get("/", (req: Request, res: Response) => {

@@ -1,6 +1,26 @@
 import { Request, Response } from "express";
 import pool from "../database/db";
 
+// Helper function
+const validateOvertime = (time: string) => {
+  const regex = /^(\d{1,2}):([0-5]?\d):([0-5]?\d)$/;
+  const match = time.match(regex);
+
+  if (!match) return false;
+
+  const hours = parseInt(match[1], 10);
+  const minutes = parseInt(match[2], 10);
+  const seconds = parseInt(match[3], 10);
+
+  if (hours < 0 || hours > 24) return false;
+  if (minutes < 0 || minutes > 59) return false;
+  if (seconds < 0 || seconds > 59) return false;
+
+  if (hours === 0 && minutes === 0 && seconds === 0) return false;
+
+  return true;
+};
+
 export const getAllOvertime = async (req: Request, res: Response) => {
   try {
     const [rows]: any = await pool.query(`
@@ -10,6 +30,8 @@ export const getAllOvertime = async (req: Request, res: Response) => {
         u.name,
         o.date,
         o.time AS totalTime,
+          o.description,
+
         o.approval_status AS approvalStatus
       FROM overtime o
       JOIN login u ON u.id = o.employee_id
@@ -35,6 +57,8 @@ export const getMyOvertime = async (req: Request, res: Response) => {
         u.name,
         o.date,
         o.time AS totalTime,
+          o.description,
+
         o.approval_status AS approvalStatus
       FROM overtime o
       JOIN login u ON u.id = o.employee_id
@@ -73,6 +97,14 @@ export const createOvertime = async (
       return;
     }
 
+    if (!validateOvertime(time)) {
+      res.status(400).json({
+        message:
+          "Invalid overtime! Hours 0-24, Minutes/Seconds 0-59, cannot be 00:00:00",
+      });
+      return;
+    }
+
     await pool.query(
       `
       INSERT INTO overtime (employee_id, date, time, description)
@@ -105,6 +137,14 @@ export const updateOvertime = async (
       res
         .status(400)
         .json({ message: "Another record already exists for this date." });
+      return;
+    }
+
+    if (!validateOvertime(time)) {
+      res.status(400).json({
+        message:
+          "Invalid overtime! Hours 0-24, Minutes/Seconds 0-59, cannot be 00:00:00",
+      });
       return;
     }
 

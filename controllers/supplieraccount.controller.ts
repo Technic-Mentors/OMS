@@ -1,7 +1,6 @@
 import { Request, Response } from "express";
 import pool from "../database/db";
 
-
 export const getSupplierAcc = async (req: Request, res: Response) => {
   try {
     const [rows] = await pool.query(
@@ -16,7 +15,6 @@ export const getSupplierAcc = async (req: Request, res: Response) => {
   }
 };
 
-
 export const getSuppliers = async (req: Request, res: Response) => {
   try {
     const [rows] = await pool.query(
@@ -30,18 +28,21 @@ export const getSuppliers = async (req: Request, res: Response) => {
   }
 };
 
-
 export const addSupplierAcc = async (req: Request, res: Response) => {
-  const { supplierId, debit, credit, paymentMethod, paymentDate } = req.body;
+  const { supplierId, paymentType, amount, paymentMethod, paymentDate } =
+    req.body;
 
   try {
-    const refNo = `${Date.now()}`;
+    const refNo = `SUP-${Date.now()}`;
+
+    const debit = paymentType === "debit" ? amount : 0;
+    const credit = paymentType === "credit" ? amount : 0;
 
     await pool.query(
       `INSERT INTO supplier_accounts
       (supplierId, refNo, debit, credit, paymentMethod, paymentDate)
       VALUES (?, ?, ?, ?, ?, ?)`,
-      [supplierId, refNo, debit || 0, credit || 0, paymentMethod, paymentDate],
+      [supplierId, refNo, debit, credit, paymentMethod, paymentDate],
     );
 
     res.status(201).json({ message: "Supplier account added" });
@@ -49,7 +50,6 @@ export const addSupplierAcc = async (req: Request, res: Response) => {
     res.status(500).json({ message: "Failed to add supplier account" });
   }
 };
-
 
 export const getSupplierById = async (
   req: Request,
@@ -75,7 +75,6 @@ export const getSupplierById = async (
     res.status(500).json({ message: "Failed to fetch supplier" });
   }
 };
-
 
 export const getSupplierAccounts = async (req: Request, res: Response) => {
   const { supplierId } = req.params;

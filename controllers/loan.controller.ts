@@ -31,11 +31,11 @@ export const getAllLoans = async (_req: Request, res: Response) => {
 
 export const getMyLoans = async (
   req: AuthenticatedRequest,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     const employeeId = req.user?.id;
-    if (!employeeId)  res.status(400).json({ message: "Employee ID missing" });
+    if (!employeeId) res.status(400).json({ message: "Employee ID missing" });
 
     const [rows] = await pool.query(
       `SELECT 
@@ -53,7 +53,7 @@ export const getMyLoans = async (
       LEFT JOIN employee_lifeline e ON e.employee_id = l.employee_id
       WHERE l.employee_id = ?
       ORDER BY l.id DESC`,
-      [employeeId]
+      [employeeId],
     );
 
     res.json(rows);
@@ -63,14 +63,12 @@ export const getMyLoans = async (
   }
 };
 
-
 export const addLoan = async (
   req: AuthenticatedRequest,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
-    const { loanAmount, deduction, remainingAmount, applyDate, employee_id } =
-      req.body;
+    const { loanAmount, deduction, applyDate, employee_id } = req.body;
 
     const finalEmployeeId =
       req.user?.role === "admin" ? employee_id : req.user?.id;
@@ -80,6 +78,9 @@ export const addLoan = async (
     }
 
     const refNo = Date.now();
+
+    const remainingAmount = loanAmount;
+    const return_amount = 0;
 
     await pool.query(
       `INSERT INTO loan
@@ -92,7 +93,7 @@ export const addLoan = async (
         loanAmount,
         deduction,
         remainingAmount,
-      ]
+      ],
     );
 
     res.status(201).json({ message: "Loan added successfully" });

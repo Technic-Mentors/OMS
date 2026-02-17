@@ -7,7 +7,7 @@ export const getCustomerAccountsList = async (req: Request, res: Response) => {
       `SELECT id, customerName, customerContact, customerAddress
        FROM customers
        WHERE customerStatus = 'Y'
-       ORDER BY id DESC`
+       ORDER BY id DESC`,
     );
     res.json(rows);
   } catch (err) {
@@ -20,7 +20,7 @@ export const getAllCustomers = async (req: Request, res: Response) => {
     const [rows] = await pool.query(
       `SELECT id, customerName, customerContact, customerAddress
        FROM customers
-       WHERE customerStatus = 'Y'`
+       WHERE customerStatus = 'Y'`,
     );
     res.json(rows);
   } catch {
@@ -29,16 +29,20 @@ export const getAllCustomers = async (req: Request, res: Response) => {
 };
 
 export const addCustomerAccount = async (req: Request, res: Response) => {
-  const { customerId, debit, credit, paymentMethod, paymentDate } = req.body;
+  const { customerId, paymentType, amount, paymentMethod, paymentDate } =
+    req.body;
 
   try {
-    const refNo = `${Date.now()}`;
+    const refNo = `CUS-${Date.now()}`;
+
+    const debit = paymentType === "debit" ? amount : 0;
+    const credit = paymentType === "credit" ? amount : 0;
 
     await pool.query(
       `INSERT INTO customer_accounts
       (customerId, refNo, debit, credit, paymentMethod, paymentDate)
       VALUES (?, ?, ?, ?, ?, ?)`,
-      [customerId, refNo, debit, credit, paymentMethod, paymentDate]
+      [customerId, refNo, debit, credit, paymentMethod, paymentDate],
     );
 
     res.status(201).json({ message: "Customer account added" });
@@ -49,7 +53,7 @@ export const addCustomerAccount = async (req: Request, res: Response) => {
 
 export const getCustomerById = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   const { id } = req.params;
 
@@ -58,11 +62,12 @@ export const getCustomerById = async (
       `SELECT customerName, customerContact, customerAddress
        FROM customers
        WHERE id = ?`,
-      [id]
+      [id],
     );
 
     if (!rows.length) {
       res.status(404).json({ message: "Customer not found" });
+      return;
     }
 
     res.json(rows[0]);
@@ -73,7 +78,7 @@ export const getCustomerById = async (
 
 export const getCustomerAccountsByCustomerId = async (
   req: Request,
-  res: Response
+  res: Response,
 ) => {
   const { id } = req.params;
 
@@ -83,7 +88,7 @@ export const getCustomerAccountsByCustomerId = async (
        FROM customer_accounts
        WHERE customerId = ?
        ORDER BY createdAt ASC`,
-      [id]
+      [id],
     );
 
     const formatted = rows.map((row: any) => ({
