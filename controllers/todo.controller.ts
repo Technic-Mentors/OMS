@@ -70,7 +70,10 @@ ORDER BY t.id DESC
   }
 };
 
-export const getUserTodos = async (req: Request, res: Response): Promise <void> => {
+export const getUserTodos = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
   try {
     const { id } = req.params;
 
@@ -80,9 +83,9 @@ export const getUserTodos = async (req: Request, res: Response): Promise <void> 
     employee_id,
     task,
     note,
-    DATE_FORMAT(t.startDate, '%Y-%m-%d') AS startDate,
-        DATE_FORMAT(t.endDate, '%Y-%m-%d') AS endDate,
-        DATE_FORMAT(t.deadline, '%Y-%m-%d') AS deadline,
+    DATE_FORMAT(startDate, '%Y-%m-%d') AS startDate,
+    DATE_FORMAT(endDate, '%Y-%m-%d') AS endDate,
+    DATE_FORMAT(deadline, '%Y-%m-%d') AS deadline,
     todoStatus,
     completionStatus
   FROM todo
@@ -119,6 +122,7 @@ export const addTodo = async (
 
     if (!task || !startDate || !endDate || !deadline) {
       res.status(400).json({ message: "Task and dates are required" });
+      return;
     }
 
     if (new Date(startDate) && new Date(endDate) > new Date(deadline)) {
@@ -153,6 +157,7 @@ export const addTodo = async (
     if (user?.role === "admin") {
       if (!employee_id)
         res.status(400).json({ message: "employee_id is required for admin" });
+      return;
       finalEmployeeId = Number(employee_id);
     } else {
       finalEmployeeId = user?.id ?? 0;
@@ -181,6 +186,7 @@ export const addTodo = async (
         message:
           "This task of this user already exists for this selected date range",
       });
+      return;
     }
 
     const [userRows]: any = await pool.query(
@@ -229,23 +235,6 @@ export const addTodo = async (
       res.status(400).json({
         message:
           "Cannot add todo. User has approved leave on one or more selected dates.",
-      });
-      return;
-    }
-
-    const blockedDays = await checkBlockedDates(
-      finalEmployeeId,
-      normalizeDate(startDate)!,
-      normalizeDate(endDate)!,
-    );
-
-    if (blockedDays.length > 0) {
-      const blockedDates = blockedDays
-        .map((d: any) => normalizeDate(d.date))
-        .join(", ");
-
-      res.status(400).json({
-        message: `Cannot add todo. User is Absent or on Approved Leave on: ${blockedDates}`,
       });
       return;
     }
@@ -299,6 +288,7 @@ export const updateTodo = async (
         message:
           "employee_id, task, startDate, endDate, and deadline are required",
       });
+      return;
     }
 
     if (new Date(startDate) && new Date(endDate) > new Date(deadline)) {
@@ -390,23 +380,6 @@ export const updateTodo = async (
       return;
     }
 
-    const blockedDays = await checkBlockedDates(
-      employee_id,
-      normalizedStart,
-      normalizedEnd,
-    );
-
-    if (blockedDays.length > 0) {
-      const blockedDates = blockedDays
-        .map((d: any) => normalizeDate(d.date))
-        .join(", ");
-
-      res.status(400).json({
-        message: `Cannot update todo. User is Absent or on Approved Leave on: ${blockedDates}`,
-      });
-      return;
-    }
-
     const query = `
       UPDATE todo
       SET
@@ -433,9 +406,11 @@ export const updateTodo = async (
 
     if (result.affectedRows === 0) {
       res.status(404).json({ message: "Todo not found" });
+      return;
     }
 
     res.status(200).json({ message: "Todo updated successfully" });
+    return;
   } catch (error) {
     console.error("Update Todo Error:", error);
     res.status(500).json({ message: "Failed to update todo" });

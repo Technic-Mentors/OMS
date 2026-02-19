@@ -51,6 +51,7 @@ export const getMyLeaves = async (req: RequestWithUser, res: Response) => {
         l.leaveReason,
         DATE_FORMAT(l.fromDate, '%Y-%m-%d') AS fromDate,
         DATE_FORMAT(l.toDate, '%Y-%m-%d') AS toDate,
+
         l.leaveStatus,
         u.name
       FROM leaves l
