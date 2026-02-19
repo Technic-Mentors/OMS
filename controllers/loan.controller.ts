@@ -77,7 +77,37 @@ export const addLoan = async (
       res.status(400).json({ message: "Missing required fields" });
     }
 
+     const loanAmt = Number(loanAmount);
+    const deductionAmt = Number(deduction || 0);
+
+    if (deductionAmt > loanAmt) {
+      res.status(400).json({
+        message: "Deduction amount cannot be greater than loan amount",
+      });
+      return;
+    }
+
     const refNo = Date.now();
+
+    const [employeeRows]: any = await pool.query(
+      `SELECT date FROM employee_lifeline WHERE employee_id = ?`,
+      [finalEmployeeId]
+    );
+
+    if (!employeeRows.length) {
+      res.status(404).json({ message: "Employee not found" });
+      return;
+    }
+
+    const joiningDate = new Date(employeeRows[0].date);
+    const loanApplyDate = new Date(applyDate);
+
+    if (loanApplyDate < joiningDate) {
+      res.status(400).json({
+        message: "Loan apply date cannot be before employee joining date",
+      });
+      return;
+    }
 
     const remainingAmount = loanAmount;
     const return_amount = 0;

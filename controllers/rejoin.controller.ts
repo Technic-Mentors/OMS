@@ -40,22 +40,26 @@ export const getMyRejoinRequests = async (
   }
 };
 
-export const getUsersWithAcceptedResignation = async (req: Request, res: Response) => {
+export const getUsersWithAcceptedResignation = async (
+  req: Request,
+  res: Response,
+) => {
   try {
     const [rows] = await pool.query(
       `SELECT l.id, l.name, r.designation, r.resignation_date
        FROM resignation r
        JOIN login l ON r.employee_id = l.id
-       WHERE r.approval_status = 'ACCEPTED' AND l.loginStatus = 'N'`
+       WHERE r.approval_status = 'Accepted' AND l.loginStatus = 'N'`,
     );
 
     res.json({ users: rows });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "Failed to fetch users with accepted resignation" });
+    res
+      .status(500)
+      .json({ message: "Failed to fetch users with accepted resignation" });
   }
 };
-
 
 export const getMyLifeLine = async (
   req: AuthenticatedRequest,
@@ -107,10 +111,10 @@ export const addRejoinRequest = async (
 ): Promise<void> => {
   const { id, note, rejoin_date } = req.body;
 
-  if (!id || !rejoin_date){
-      res.status(400).json({ message: "Employee and rejoin date are required" });
-      return;
-    };
+  if (!id || !rejoin_date) {
+    res.status(400).json({ message: "Employee and rejoin date are required" });
+    return;
+  }
 
   try {
     const [employeeRows] = await pool.query(
@@ -132,6 +136,26 @@ export const addRejoinRequest = async (
       Array.isArray(resignationRows) && resignationRows.length > 0
         ? (resignationRows as any)[0].resignation_date
         : null;
+
+    const [joinRows]: any = await pool.query(
+      "SELECT date FROM login WHERE id = ?",
+      [id],
+    );
+
+    if (!joinRows.length) {
+      res.status(404).json({ message: "Employee not found" });
+      return;
+    }
+
+    const joiningDate = new Date(joinRows[0].date);
+    const rejoinDateObj = new Date(rejoin_date);
+
+    if (rejoinDateObj < joiningDate) {
+      res.status(400).json({
+        message: "Rejoin date cannot be before employee joining date",
+      });
+      return;
+    }
 
     await pool.query(
       `INSERT INTO rejoin 
@@ -193,6 +217,26 @@ export const updateRejoinRequest = async (
       Array.isArray(resignationRows) && resignationRows.length > 0
         ? (resignationRows as any)[0].resignation_date
         : null;
+
+    const [joinRows]: any = await pool.query(
+      "SELECT date FROM login WHERE id = ?",
+      [employee_id],
+    );
+
+    if (!joinRows.length) {
+      res.status(404).json({ message: "Employee not found" });
+      return;
+    }
+
+    const joiningDate = new Date(joinRows[0].date);
+    const rejoinDateObj = new Date(rejoin_date);
+
+    if (rejoinDateObj < joiningDate) {
+      res.status(400).json({
+        message: "Rejoin date cannot be before employee joining date",
+      });
+      return;
+    }
 
     await pool.query(
       `UPDATE rejoin SET 

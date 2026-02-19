@@ -4,6 +4,11 @@ import { RowDataPacket, ResultSetHeader } from "mysql2";
 
 const toMySQLDate = (dateStr: string | null) => {
   if (!dateStr) return null;
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+    return dateStr;
+  }
+
   const date = new Date(dateStr);
   if (isNaN(date.getTime())) return null;
 
@@ -13,7 +18,6 @@ const toMySQLDate = (dateStr: string | null) => {
 
   return `${year}-${month}-${day}`;
 };
-
 const calculateWorkingHours = (clockIn: string, clockOut: string) => {
   if (!clockIn || !clockOut) return null;
 
@@ -102,7 +106,7 @@ export const addAttendance = async (
   res: Response,
 ): Promise<void> => {
   const { userId } = req.params;
-  const { date, clockIn, clockOut } = req.body;
+  const { date, clockIn, clockOut, attendanceStatus: manualStatus } = req.body;
 
   try {
     const formattedDate = toMySQLDate(date);
@@ -137,17 +141,18 @@ export const addAttendance = async (
     const workingHours = calculateWorkingHours(clockIn, clockOut);
     const rule = await getAttendanceRule();
 
-    let attendanceStatus = "Present";
+    let finalStatus = manualStatus || "present";
 
-    if (rule) {
-      if (rule.lateTime && clockIn >= rule.lateTime) {
-        attendanceStatus = "Late";
-      }
-      if (rule.halfLeave && clockIn >= rule.halfLeave) {
-        attendanceStatus = "Absent";
+    if (finalStatus.toLowerCase() === "present") {
+      if (rule) {
+        if (rule.lateTime && clockIn >= rule.lateTime) {
+          finalStatus = "Late";
+        }
+        if (rule.halfLeave && clockIn >= rule.halfLeave) {
+          finalStatus = "Absent";
+        }
       }
     }
-
     const [result] = await pool.query<ResultSetHeader>(
       `INSERT INTO attendance
        (userId, date, clockIn, clockOut, attendanceStatus, workingHours, status)
@@ -155,9 +160,9 @@ export const addAttendance = async (
       [
         userId,
         formattedDate,
-        clockIn,
-        clockOut,
-        attendanceStatus,
+        clockIn || null,
+        clockOut || null,
+        finalStatus,
         workingHours,
       ],
     );
@@ -165,7 +170,7 @@ export const addAttendance = async (
     res.json({
       message: "Attendance added successfully",
       id: result.insertId,
-      attendanceStatus,
+      finalStatus,
     });
   } catch (error) {
     console.error(error);
@@ -178,23 +183,20 @@ export const updateAttendance = async (
   res: Response,
 ): Promise<void> => {
   const { id } = req.params;
-  const { userId, date, clockIn, clockOut } = req.body;
+
+  const {
+    userId,
+    date,
+    clockIn,
+    clockOut,
+    attendanceStatus: reqStatus,
+  } = req.body;
 
   try {
     const formattedDate = toMySQLDate(date);
     const workingHours = calculateWorkingHours(clockIn, clockOut);
-    const rule = await getAttendanceRule();
 
-    let attendanceStatus = "Present";
-
-    if (rule) {
-      if (rule.lateTime && clockIn >= rule.lateTime) {
-        attendanceStatus = "Late";
-      }
-      if (rule.halfLeave && clockIn >= rule.halfLeave) {
-        attendanceStatus = "Absent";
-      }
-    }
+    let finalStatus = reqStatus;
 
     await pool.query<ResultSetHeader>(
       `UPDATE attendance
@@ -204,9 +206,9 @@ export const updateAttendance = async (
       [
         userId,
         formattedDate,
-        clockIn,
-        clockOut,
-        attendanceStatus,
+        clockIn || null,
+        clockOut || null,
+        finalStatus,
         workingHours,
         id,
       ],

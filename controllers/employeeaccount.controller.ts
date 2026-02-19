@@ -27,6 +27,26 @@ export const addEmployeeAccount = async (
       return;
     }
 
+     const [empRows]: any = await pool.query(
+      `SELECT date FROM login WHERE id = ?`,
+      [employee_id],
+    );
+
+    if (!empRows.length) {
+      res.status(404).json({ message: "Employee not found" });
+      return;
+    }
+
+    const joiningDate = new Date(empRows[0].date);
+    const paymentDateObj = new Date(payment_date);
+
+    if (paymentDateObj < joiningDate) {
+      res.status(400).json({
+        message: "Cannot process payment before employee joining date",
+      });
+      return;
+    }
+
     const debit = payment_type === "debit" ? Number(amount) : 0;
     const credit = payment_type === "credit" ? Number(amount) : 0;
 

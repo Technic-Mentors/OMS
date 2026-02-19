@@ -89,7 +89,8 @@ export const addLeave = async (req: RequestWithUser, res: Response) => {
       return res.status(401).json({ message: "Unauthorized" });
     }
 
-    const { leaveSubject, fromDate, toDate,  leaveReason, employee_id } = req.body;
+    const { leaveSubject, fromDate, toDate, leaveReason, employee_id } =
+      req.body;
 
     if (!leaveSubject || !fromDate || !toDate || !leaveReason) {
       return res.status(400).json({ message: "Missing required fields" });
@@ -112,10 +113,10 @@ export const addLeave = async (req: RequestWithUser, res: Response) => {
     }
 
     const [existing] = await pool.query(
-  `SELECT id FROM leaves WHERE userId = ? AND leaveStatus != 'Rejected' 
+      `SELECT id FROM leaves WHERE userId = ? AND leaveStatus != 'Rejected' 
    AND ((fromDate <= ? AND toDate >= ?) OR (fromDate <= ? AND toDate >= ?))`,
-  [userId, toDate, fromDate, fromDate, toDate]
-);
+      [userId, toDate, fromDate, fromDate, toDate],
+    );
 
     if ((existing as any).length > 0) {
       return res
@@ -123,11 +124,46 @@ export const addLeave = async (req: RequestWithUser, res: Response) => {
         .json({ message: "Leave already applied  for this user  today" });
     }
 
+    const [attendanceCheck] = await pool.query<RowDataPacket[]>(
+      `SELECT id FROM attendance
+   WHERE userId = ?
+   AND date BETWEEN ? AND ?
+   AND status = 'Y'`,
+      [userId, fromDate, toDate],
+    );
+
+    if (attendanceCheck.length > 0) {
+      return res.status(400).json({
+        message:
+          "Attendance already marked for one or more selected dates. Cannot apply leave.",
+      });
+    }
+
+    const [userRows] = await pool.query<RowDataPacket[]>(
+      "SELECT date FROM login WHERE id = ?",
+      [userId],
+    );
+
+    if (userRows.length === 0) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const joiningDate = new Date(userRows[0].date);
+    const leaveFromDate = new Date(fromDate);
+
+    const leaveToDate = new Date(toDate);
+
+    if (leaveFromDate < joiningDate || leaveToDate < joiningDate) {
+      return res.status(400).json({
+        message: "Leave cannot be applied before employee joining date",
+      });
+    }
+
     await pool.query(
-  `INSERT INTO leaves (userId, leaveSubject, fromDate, toDate, leaveReason, leaveStatus)
+      `INSERT INTO leaves (userId, leaveSubject, fromDate, toDate, leaveReason, leaveStatus)
    VALUES (?, ?, ?, ?, ?, ?)`,
-  [userId, leaveSubject, fromDate, toDate, leaveReason, "Pending"]
-);
+      [userId, leaveSubject, fromDate, toDate, leaveReason, "Pending"],
+    );
 
     return res.status(201).json({ message: "Leave added successfully" });
   } catch (error) {
@@ -144,13 +180,14 @@ export const updateLeave = async (
 ): Promise<void> => {
   try {
     const leaveId = Number(req.params.id);
-    const { leaveStatus, fromDate, toDate, leaveSubject, leaveReason } = req.body;
+    const { leaveStatus, fromDate, toDate, leaveSubject, leaveReason } =
+      req.body;
 
     await pool.query(
       `UPDATE leaves
        SET fromDate = ?, toDate = ?, leaveStatus = ?, leaveSubject = ?, leaveReason = ?
        WHERE id = ?`,
-      [fromDate,toDate , leaveStatus, leaveSubject, leaveReason, leaveId],
+      [fromDate, toDate, leaveStatus, leaveSubject, leaveReason, leaveId],
     );
 
     const [leaveRows] = await pool.query<RowDataPacket[]>(
@@ -162,8 +199,10 @@ export const updateLeave = async (
       const { userId } = leaveRows[0];
 
       const [attendanceRows] = await pool.query<RowDataPacket[]>(
-        `SELECT id FROM attendance WHERE userId = ? AND date = ? `,
-        [userId, fromDate , toDate],
+        `SELECT id FROM attendance 
+   WHERE userId = ? 
+   AND date BETWEEN ? AND ?`,
+        [userId, fromDate, toDate],
       );
 
       if (attendanceRows.length > 0) {

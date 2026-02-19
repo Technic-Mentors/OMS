@@ -22,7 +22,7 @@ export const getResignations = async (
 ) => {
   try {
     const [rows] = await pool.query<ResignationRow[]>(
-      `SELECT r.id, l.name AS employee_name, r.designation, r.resignation_date, r.note, r.approval_status
+      `SELECT r.id, l.name AS employee_name, r.designation, DATE_FORMAT(r.resignation_date, '%Y-%m-%d') AS resignation_date, r.note, r.approval_status
        FROM resignation r
        JOIN login l ON r.employee_id = l.id
        ORDER BY r.id DESC`,

@@ -150,10 +150,7 @@ export const updateApplicant = async (
       return;
     }
 
-    const formattedDate =
-      typeof applied_date === "string"
-        ? applied_date.split("T")[0]
-        : applied_date;
+    const formattedDate = applied_date ? new Date(applied_date).toISOString().split('T')[0] : null;
 
     const query = `
       UPDATE applicants 

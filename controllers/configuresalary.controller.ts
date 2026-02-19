@@ -68,7 +68,7 @@ export const getSalaryById = async (
   }
 };
 
-export const addSalary = async (req: Request, res: Response):Promise <void> => {
+export const addSalary = async (req: Request, res: Response): Promise<void> => {
   try {
     const {
       employee_id,
@@ -97,6 +97,26 @@ export const addSalary = async (req: Request, res: Response):Promise <void> => {
       return;
     }
 
+    const [empRows]: any = await pool.query(
+      `SELECT date FROM employee_lifeline WHERE employee_id = ?`,
+      [employee_id],
+    );
+
+    if (empRows.length === 0) {
+      res.status(404).json({ message: "Employee not found" });
+      return;
+    }
+
+    const joiningDate = new Date(empRows[0].date);
+    const configDate = new Date(config_date);
+
+    if (configDate < joiningDate) {
+      res.status(400).json({
+        message: "Cannot configure salary before employee joining date.",
+      });
+      return;
+    }
+
     const [result] = await pool.query(
       `INSERT INTO configempsalaries
        (employee_id, salary_amount, emp_of_mon_allowance, transport_allowance, medical_allowance, total_salary, config_date , status)
@@ -121,7 +141,10 @@ export const addSalary = async (req: Request, res: Response):Promise <void> => {
   }
 };
 
-export const updateSalary = async (req: Request, res: Response):Promise <void> => {
+export const updateSalary = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
   try {
     const { id } = req.params;
     const {
@@ -148,6 +171,26 @@ export const updateSalary = async (req: Request, res: Response):Promise <void> =
       res.status(400).json({
         message:
           "A configuration for this employee already exists in the selected month.",
+      });
+      return;
+    }
+
+     const [empRows]: any = await pool.query(
+      `SELECT date FROM employee_lifeline WHERE employee_id = ?`,
+      [employee_id],
+    );
+
+    if (empRows.length === 0) {
+      res.status(404).json({ message: "Employee not found" });
+      return;
+    }
+
+    const joiningDate = new Date(empRows[0].date);
+    const configDate = new Date(config_date);
+
+    if (configDate < joiningDate) {
+      res.status(400).json({
+        message: "Cannot configure salary before employee joining date.",
       });
       return;
     }

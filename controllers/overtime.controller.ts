@@ -105,6 +105,34 @@ export const createOvertime = async (
       return;
     }
 
+    // Get employee joining date
+    const [userRows]: any = await pool.query(
+      `SELECT date FROM login WHERE id = ?`,
+      [empId],
+    );
+
+    if (!userRows.length) {
+      res.status(404).json({ message: "Employee not found" });
+      return;
+    }
+
+    const joiningDate = userRows[0].date;
+
+    if (!joiningDate) {
+      res.status(400).json({ message: "Employee joining date not set" });
+      return;
+    }
+
+    const overtimeDate = new Date(date);
+    const empJoiningDate = new Date(joiningDate);
+
+    if (overtimeDate < empJoiningDate) {
+      res.status(400).json({
+        message: "Overtime cannot be added before employee joining date",
+      });
+      return;
+    }
+
     await pool.query(
       `
       INSERT INTO overtime (employee_id, date, time, description)
@@ -144,6 +172,34 @@ export const updateOvertime = async (
       res.status(400).json({
         message:
           "Invalid overtime! Hours 0-24, Minutes/Seconds 0-59, cannot be 00:00:00",
+      });
+      return;
+    }
+
+    // Get employee joining date
+    const [userRows]: any = await pool.query(
+      `SELECT date FROM login WHERE id = ?`,
+      [employeeId],
+    );
+
+    if (!userRows.length) {
+      res.status(404).json({ message: "Employee not found" });
+      return;
+    }
+
+    const joiningDate = userRows[0].date;
+
+    if (!joiningDate) {
+      res.status(400).json({ message: "Employee joining date not set" });
+      return;
+    }
+
+    const overtimeDate = new Date(date);
+    const empJoiningDate = new Date(joiningDate);
+
+    if (overtimeDate < empJoiningDate) {
+      res.status(400).json({
+        message: "Overtime cannot be updated to a date before joining date",
       });
       return;
     }

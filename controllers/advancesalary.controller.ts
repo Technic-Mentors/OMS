@@ -4,14 +4,16 @@ import pool from "../database/db";
 
 export const getAllAdvanceSalary = async (
   req: AuthenticatedRequest,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     const [rows]: any = await pool.query(
-      `SELECT a.id, a.employee_id, e.employee_name, a.date, a.amount, a.approvalStatus, a.description
+      `SELECT a.id, a.employee_id, e.employee_name, 
+              DATE_FORMAT(a.date, '%Y-%m-%d') as date, 
+              a.amount, a.approvalStatus, a.description
        FROM advance_salaries a
        JOIN employee_lifeline e ON a.employee_id = e.employee_id
-       ORDER BY a.id DESC`
+       ORDER BY a.id DESC`,
     );
     res.json(rows);
   } catch (err) {
@@ -22,7 +24,7 @@ export const getAllAdvanceSalary = async (
 
 export const getMyAdvanceSalary = async (
   req: AuthenticatedRequest,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   const userId = req.user?.id;
 
@@ -38,7 +40,7 @@ export const getMyAdvanceSalary = async (
        JOIN employee_lifeline e ON a.employee_id = e.employee_id
        WHERE a.employee_id = ?
        ORDER BY a.id DESC`,
-      [userId]
+      [userId],
     );
     res.json(rows);
   } catch (err) {
@@ -49,7 +51,7 @@ export const getMyAdvanceSalary = async (
 
 export const createAdvanceSalary = async (
   req: AuthenticatedRequest,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   const { employee_id, date, amount, description } = req.body;
 
@@ -64,10 +66,30 @@ export const createAdvanceSalary = async (
   }
 
   try {
+    const [employee]: any = await pool.query(
+      `SELECT date FROM employee_lifeline WHERE employee_id = ?`,
+      [employee_id],
+    );
+
+    if (!employee.length) {
+      res.status(404).json({ message: "Employee not found" });
+      return;
+    }
+
+    const joiningDate = new Date(employee[0].date);
+    const requestedDate = new Date(date);
+
+    if (requestedDate < joiningDate) {
+      res.status(400).json({
+        message: `Cannot add advance salary before the joining date (${joiningDate.toISOString().split("T")[0]})`,
+      });
+      return;
+    }
+
     await pool.query(
       `INSERT INTO advance_salaries (employee_id, date, amount, description)
        VALUES (?, ?, ?, ?)`,
-      [employee_id, date, amount, description]
+      [employee_id, date, amount, description],
     );
     res.json({ message: "Advance salary added successfully" });
   } catch (err) {
@@ -78,7 +100,7 @@ export const createAdvanceSalary = async (
 
 export const updateAdvanceSalary = async (
   req: AuthenticatedRequest,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   const { id } = req.params;
   const { employee_id, date, amount, approvalStatus, description } = req.body;
@@ -94,11 +116,31 @@ export const updateAdvanceSalary = async (
   }
 
   try {
+    const [employee]: any = await pool.query(
+      `SELECT date FROM employee_lifeline WHERE employee_id = ?`,
+      [employee_id],
+    );
+
+    if (!employee.length) {
+      res.status(404).json({ message: "Employee not found" });
+      return;
+    }
+
+    const joiningDate = new Date(employee[0].date);
+    const requestedDate = new Date(date);
+
+    if (requestedDate < joiningDate) {
+      res.status(400).json({
+        message: `Cannot update advance salary with date before the joining date (${joiningDate.toISOString().split("T")[0]})`,
+      });
+      return;
+    }
+
     await pool.query(
       `UPDATE advance_salaries 
        SET employee_id = ?, date = ?, amount = ?, approvalStatus = ?, description = ? 
        WHERE id = ?`,
-      [employee_id, date, amount, approvalStatus, description, id]
+      [employee_id, date, amount, approvalStatus, description, id],
     );
     res.json({ message: "Advance salary updated successfully" });
   } catch (err) {
@@ -109,7 +151,7 @@ export const updateAdvanceSalary = async (
 
 export const deleteAdvanceSalary = async (
   req: AuthenticatedRequest,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   const { id } = req.params;
 

@@ -94,7 +94,7 @@ export const addPromotion = async (
     const employee_id = req.user.role === "admin" ? id : req.user.id;
 
     const [userRows]: any = await pool.query(
-      "SELECT name, date as joining_date FROM login WHERE id = ?",
+      "SELECT name, date  FROM login WHERE id = ?",
       [employee_id],
     );
 

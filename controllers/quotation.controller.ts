@@ -20,7 +20,7 @@ export const getQuotations = async (req: Request, res: Response) => {
 
 export const getQuotation = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   const { id } = req.params;
   try {
@@ -29,7 +29,7 @@ export const getQuotation = async (
        FROM quotations q
        JOIN customers c ON q.customerId = c.id
        WHERE q.id = ?`,
-      [id]
+      [id],
     );
 
     if (!quotations[0]) {
@@ -40,7 +40,7 @@ export const getQuotation = async (
       `SELECT id, projectId, projectName, description, QTY, UnitPrice 
        FROM quotation_items 
        WHERE quotationId = ?`,
-      [id]
+      [id],
     );
 
     res.json({
@@ -53,12 +53,16 @@ export const getQuotation = async (
   }
 };
 
-export const addQuotation = async (req: Request, res: Response) => {
+export const addQuotation = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
   const { date, customerId, items, subTotal, totalBill } = req.body;
+
   try {
     const [result]: any = await pool.query(
       `INSERT INTO quotations (refNo, customerId, date, subTotal, totalBill) VALUES (?, ?, ?, ?, ?)`,
-      [`REF-${Date.now()}`, customerId, date, subTotal, totalBill]
+      [`REF-${Date.now()}`, customerId, date, subTotal, totalBill],
     );
 
     const quotationId = result.insertId;
@@ -73,7 +77,7 @@ export const addQuotation = async (req: Request, res: Response) => {
           item.description,
           item.QTY,
           item.UnitPrice,
-        ]
+        ],
       );
     }
 
