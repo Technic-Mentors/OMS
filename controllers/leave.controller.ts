@@ -19,7 +19,8 @@ export const getUsersLeaves = async (req: RequestWithUser, res: Response) => {
         l.id,
         l.leaveSubject,
         l.leaveReason,
-        l.fromDate, l.toDate,
+        DATE_FORMAT(l.fromDate, '%Y-%m-%d') AS fromDate,
+        DATE_FORMAT(l.toDate, '%Y-%m-%d') AS toDate,
         l.leaveStatus,
         u.name
       FROM leaves l
@@ -48,7 +49,8 @@ export const getMyLeaves = async (req: RequestWithUser, res: Response) => {
         l.id,
         l.leaveSubject,
         l.leaveReason,
-        l.fromDate, l.toDate,
+        DATE_FORMAT(l.fromDate, '%Y-%m-%d') AS fromDate,
+        DATE_FORMAT(l.toDate, '%Y-%m-%d') AS toDate,
         l.leaveStatus,
         u.name
       FROM leaves l
