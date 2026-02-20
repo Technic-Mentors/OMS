@@ -77,7 +77,14 @@ export const addLoan = async (
       res.status(400).json({ message: "Missing required fields" });
     }
 
-     const loanAmt = Number(loanAmount);
+    if (loanAmount < 0 || deduction < 0) {
+      res.status(400).json({
+        message: "Loan amount and deduction cannot be negative",
+      });
+      return;
+    }
+
+    const loanAmt = Number(loanAmount);
     const deductionAmt = Number(deduction || 0);
 
     if (deductionAmt > loanAmt) {
@@ -91,7 +98,7 @@ export const addLoan = async (
 
     const [employeeRows]: any = await pool.query(
       `SELECT date FROM employee_lifeline WHERE employee_id = ?`,
-      [finalEmployeeId]
+      [finalEmployeeId],
     );
 
     if (!employeeRows.length) {
