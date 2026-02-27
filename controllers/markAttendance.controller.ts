@@ -39,6 +39,23 @@ export const getAttendance = async (
       return;
     }
 
+    const [rules]: any = await pool.query(
+      "SELECT * FROM attendance_rules ORDER BY id DESC LIMIT 1",
+    );
+
+    if (rules.length) {
+      const { offDay } = rules[0];
+      const todayDayName = moment.tz("Asia/Karachi").format("dddd");
+
+      if (offDay && todayDayName.toLowerCase() === offDay.toLowerCase()) {
+        res.status(200).json({
+          attendanceStatus: "Holiday",
+          message: `${offDay} is Weekly Off`,
+        });
+        return;
+      }
+    }
+
     const [rows]: any = await pool.query(
       "SELECT * FROM attendance WHERE userId = ? AND date = ?",
       [userId, today],
@@ -111,7 +128,16 @@ export const markAttendance = async (
       res.status(500).json({ message: "Attendance rules not configured" });
       return;
     }
-    const { lateTime, halfLeave } = rules[0];
+    const { lateTime, halfLeave, offDay } = rules[0];
+
+    const todayDayName = moment.tz("Asia/Karachi").format("dddd");
+
+    if (offDay && todayDayName.toLowerCase() === offDay.toLowerCase()) {
+      res.status(400).json({
+        message: `${offDay} is configured as Off Day. Attendance cannot be marked.`,
+      });
+      return;
+    }
 
     const [rows]: any = await pool.query(
       "SELECT * FROM attendance WHERE userId = ? AND date = ?",

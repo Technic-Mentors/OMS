@@ -44,8 +44,6 @@ import rejoinRoutes from "./routes/rejoin.routes";
 import userDashboardRoutes from "./routes/userDashboard.routes";
 import salaryCycleRoutes from "./routes/salaryCycle.routes";
 
-
-
 import session from "express-session";
 
 const app: Application = express();
@@ -65,7 +63,7 @@ app.use(
     resave: false,
     saveUninitialized: true,
     cookie: { secure: false },
-  })
+  }),
 );
 
 app.use(express.static(path.join(__dirname, "dist")));
@@ -109,8 +107,6 @@ app.use("/api", rejoinRoutes);
 app.use("/api", userDashboardRoutes);
 app.use("/api", salaryCycleRoutes);
 
-
-
 app.get("/", (req: Request, res: Response) => {
   res.send("Backend is up and running 🚀");
 });
@@ -118,5 +114,9 @@ app.get("/", (req: Request, res: Response) => {
 app.listen(PORT, () => {
   console.log(` Backend is running on ${PORT}`);
 });
+
+// app.listen(PORT, "0.0.0.0", () => {
+//   console.log(`Server running on http://192.168.1.5:${PORT}`);
+// });
 
 export default app;

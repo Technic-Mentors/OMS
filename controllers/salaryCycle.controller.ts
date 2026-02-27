@@ -9,9 +9,7 @@ export const runSalaryCycle = async (
     const { year, month } = req.body;
 
     const [existing]: any = await pool.query(
-      `SELECT id FROM employee_accounts 
-   WHERE refNo LIKE ? 
-   LIMIT 1`,
+      `SELECT id FROM employee_accounts WHERE refNo LIKE ? LIMIT 1`,
       [`SAL-${month}-${year}-%`],
     );
 
@@ -22,13 +20,54 @@ export const runSalaryCycle = async (
       return;
     }
 
+    const monthNames = [
+      "January",
+      "February",
+      "March",
+      "April",
+      "May",
+      "June",
+      "July",
+      "August",
+      "September",
+      "October",
+      "November",
+      "December",
+    ];
+    const monthIndex = monthNames.indexOf(month);
     const salaryDate = new Date(`${year}-${month}-01`);
 
     const [salaries]: any = await pool.query(
-      `SELECT * FROM configempsalaries 
-       WHERE status='ACTIVE' 
-       AND MONTH(config_date)=MONTH(?) 
-       AND YEAR(config_date)=YEAR(?)`,
+      `SELECT 
+        c.id,
+        c.employee_id,
+        c.total_salary,
+        c.config_date,
+        c.effective_from,
+        DAY(LAST_DAY(c.config_date)) AS total_days,
+        (DATEDIFF(c.config_date, c.effective_from) + 1) AS effective_days,
+        ROUND(
+          (c.total_salary / DAY(LAST_DAY(c.config_date))) *
+          (DATEDIFF(c.config_date, c.effective_from) + 1)
+        ) AS prorated_salary,
+        COALESCE(SUM(CAST(l.deduction AS DECIMAL(10,2))), 0) AS total_loan_deduction,
+        ROUND(
+          (
+            (c.total_salary / DAY(LAST_DAY(c.config_date))) *
+            (DATEDIFF(c.config_date, c.effective_from) + 1)
+          ) - COALESCE(SUM(CAST(l.deduction AS DECIMAL(10,2))), 0)
+        ) AS net_salary
+      FROM configempsalaries c
+      LEFT JOIN loan l ON l.employee_id = c.employee_id AND l.remainingAmount > 0
+      WHERE c.status='ACTIVE' 
+        AND MONTH(c.config_date)=MONTH(?) 
+        AND YEAR(c.config_date)=YEAR(?)
+      GROUP BY 
+        c.id,
+        c.employee_id,
+        c.total_salary,
+        c.config_date,
+        c.effective_from`,
       [salaryDate, salaryDate],
     );
 
@@ -38,38 +77,28 @@ export const runSalaryCycle = async (
     }
 
     for (const sal of salaries) {
-      const [loanRows]: any = await pool.query(
-        `SELECT COALESCE(SUM(CAST(deduction AS DECIMAL(10,2))), 0) AS total_loan_deduction
-     FROM loan
-     WHERE employee_id = ?`,
-        [sal.employee_id],
-      );
+      // Use the net_salary from the query which matches what's shown in ConfigEmpSalary
+      const debit = Number(sal.net_salary);
 
-     const [activeLoans]: any = await pool.query(
-        `SELECT id, remainingAmount, return_amount, deduction 
-         FROM loan 
-         WHERE employee_id = ? AND remainingAmount > 0`,
-        [sal.employee_id]
-    );
+      if (isNaN(debit) || debit < 0) continue;
 
-    let monthlyLoanDeduction = 0;
-
-    for (const loan of activeLoans) {
-        const deductNow = Math.min(loan.deduction, loan.remainingAmount);
-        monthlyLoanDeduction += Number(deductNow);
-
-        await pool.query(
-            `UPDATE loan 
-             SET return_amount = return_amount + ?, 
-                 remainingAmount = remainingAmount - ? 
-             WHERE id = ?`,
-            [deductNow, deductNow, loan.id]
+      // Update loan return amounts if needed
+      if (sal.total_loan_deduction > 0) {
+        const [activeLoans]: any = await pool.query(
+          `SELECT id, remainingAmount, deduction 
+           FROM loan 
+           WHERE employee_id = ? AND remainingAmount > 0`,
+          [sal.employee_id],
         );
-    }
 
-    const debit = Number(sal.total_salary) - monthlyLoanDeduction;
-
-    if (isNaN(debit) || debit < 0) continue;
+        for (const loan of activeLoans) {
+          const deductNow = Math.min(loan.deduction, loan.remainingAmount);
+          await pool.query(
+            `UPDATE loan SET return_amount = return_amount + ?, remainingAmount = remainingAmount - ? WHERE id = ?`,
+            [deductNow, deductNow, loan.id],
+          );
+        }
+      }
 
       const [last]: any = await pool.query(
         `SELECT balance FROM employee_accounts WHERE employee_id=? ORDER BY id DESC LIMIT 1`,
@@ -83,13 +112,15 @@ export const runSalaryCycle = async (
 
       await pool.query(
         `INSERT INTO employee_accounts 
-     (employee_id, debit, credit, refNo, payment_date, payment_method, balance) 
-     VALUES (?, ?, ?, ?, NOW(), ?, ?)`,
+        (employee_id, debit, credit, refNo, payment_date, payment_method, balance) 
+        VALUES (?, ?, ?, ?, NOW(), ?, ?)`,
         [sal.employee_id, debit, credit, refNo, "Cash", currentBalance],
       );
     }
 
-    res.json({ message: "Salary cycle run successfully" });
+    res.json({
+      message: "Salary cycle run successfully",
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Error running salary cycle" });

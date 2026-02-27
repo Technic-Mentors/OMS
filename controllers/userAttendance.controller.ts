@@ -111,6 +111,21 @@ export const addAttendance = async (
   try {
     const formattedDate = toMySQLDate(date);
 
+    const rule = await getAttendanceRule();
+
+    if (rule && rule.offDay) {
+      const dayName = new Date(formattedDate!).toLocaleDateString("en-US", {
+        weekday: "long",
+      });
+
+      if (dayName.toLowerCase() === rule.offDay.toLowerCase()) {
+        res.status(400).json({
+          message: `${rule.offDay} is Weekly Off. Cannot add attendance.`,
+        });
+        return;
+      }
+    }
+
     const [leaveCheck] = await pool.query<RowDataPacket[]>(
       `SELECT id FROM leaves 
        WHERE userId = ? 
@@ -139,7 +154,6 @@ export const addAttendance = async (
     }
 
     const workingHours = calculateWorkingHours(clockIn, clockOut);
-    const rule = await getAttendanceRule();
 
     let finalStatus = manualStatus || "present";
 

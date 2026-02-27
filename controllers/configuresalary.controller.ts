@@ -3,39 +3,64 @@ import pool from "../database/db";
 
 export const getSalaries = async (req: Request, res: Response) => {
   try {
-    const [rows] = await pool.query(
-      `
-      SELECT 
-        c.id,
-        c.employee_id,
-        COALESCE(e.employee_name) AS employee_name,
-        c.salary_amount,
-        c.emp_of_mon_allowance,
-        c.transport_allowance,
-        c.medical_allowance,
-        c.total_salary,
-        COALESCE(SUM(CAST(l.deduction AS DECIMAL(10,2))), 0) AS total_loan_deduction,
-        (c.total_salary - COALESCE(SUM(CAST(l.deduction AS DECIMAL(10,2))), 0)) AS net_salary,
-        c.config_date
-      FROM configempsalaries c
-      LEFT JOIN employee_lifeline e 
-        ON c.employee_id = e.employee_id
-      LEFT JOIN loan l
-        ON l.employee_id = c.employee_id
-      WHERE c.status = 'ACTIVE'
-      GROUP BY 
-        c.id, 
-        c.employee_id, 
-        e.employee_name,
-        c.salary_amount,
-        c.emp_of_mon_allowance,
-        c.transport_allowance,
-        c.medical_allowance,
-        c.total_salary,
-        c.config_date
-      ORDER BY c.config_date DESC
-      `,
-    );
+    const [rows] = await pool.query(`
+SELECT 
+  c.id,
+  c.employee_id,
+  e.employee_name,
+  c.salary_amount,
+  c.emp_of_mon_allowance,
+  c.transport_allowance,
+  c.medical_allowance,
+  c.total_salary,
+
+  COALESCE(SUM(CAST(l.deduction AS DECIMAL(10,2))), 0) AS total_loan_deduction,
+
+  -- Total days in month
+  DAY(LAST_DAY(c.config_date)) AS total_days,
+
+  -- Effective days
+  (DATEDIFF(c.config_date, c.effective_from) + 1) AS effective_days,
+
+  -- Prorated salary
+  ROUND(
+    (c.total_salary / DAY(LAST_DAY(c.config_date))) *
+    (DATEDIFF(c.config_date, c.effective_from) + 1)
+  ) AS prorated_salary,
+
+  -- Final net salary
+  ROUND(
+    (
+      (c.total_salary / DAY(LAST_DAY(c.config_date))) *
+      (DATEDIFF(c.config_date, c.effective_from) + 1)
+    ) - COALESCE(SUM(CAST(l.deduction AS DECIMAL(10,2))), 0)
+  ) AS net_salary,
+
+  c.config_date,
+  c.effective_from
+
+FROM configempsalaries c
+LEFT JOIN employee_lifeline e 
+  ON c.employee_id = e.employee_id
+LEFT JOIN loan l
+  ON l.employee_id = c.employee_id
+
+WHERE c.status = 'ACTIVE'
+
+GROUP BY 
+  c.id,
+  c.employee_id,
+  e.employee_name,
+  c.salary_amount,
+  c.emp_of_mon_allowance,
+  c.transport_allowance,
+  c.medical_allowance,
+  c.total_salary,
+  c.config_date,
+  c.effective_from
+
+ORDER BY c.config_date DESC
+`);
 
     res.json({
       salaries: rows,
@@ -78,6 +103,7 @@ export const addSalary = async (req: Request, res: Response): Promise<void> => {
       medical_allowance = 0,
       total_salary,
       config_date,
+      effective_from,
     } = req.body;
 
     const [existing]: any = await pool.query(
@@ -117,10 +143,40 @@ export const addSalary = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
+    const configDateObj = new Date(config_date);
+    const effectDateObj = new Date(effective_from);
+
+    const year = configDateObj.getFullYear();
+    const month = configDateObj.getMonth();
+
+    const totalDaysInMonth = new Date(year, month, 0).getDate();
+
+    const diffTime = configDateObj.getTime() - effectDateObj.getTime();
+    const effectiveDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
+
+    if (effectiveDays <= 0) {
+      res.status(400).json({
+        message: "Effect date cannot be after config date",
+      });
+
+      return;
+    }
+
+    const perDaySalary = total_salary / totalDaysInMonth;
+    const calculatedSalary = Math.round(perDaySalary * effectiveDays);
+
+    if (effectDateObj.getMonth() !== configDateObj.getMonth()) {
+      res.status(400).json({
+        message: "Effect date must be within same month",
+      });
+      return;
+    }
+
     const [result] = await pool.query(
       `INSERT INTO configempsalaries
-       (employee_id, salary_amount, emp_of_mon_allowance, transport_allowance, medical_allowance, total_salary, config_date , status)
-       VALUES (?, ?, ?, ?, ?, ?, ? , "ACTIVE")`,
+       (employee_id, salary_amount, emp_of_mon_allowance, transport_allowance, medical_allowance, total_salary, 
+       config_date , effective_from, status)
+       VALUES (?, ?, ?, ?, ?, ?, ? , ? , "ACTIVE")`,
       [
         employee_id,
         salary_amount,
@@ -129,6 +185,7 @@ export const addSalary = async (req: Request, res: Response): Promise<void> => {
         medical_allowance,
         total_salary,
         config_date,
+        effective_from,
       ],
     );
 
@@ -155,6 +212,7 @@ export const updateSalary = async (
       medical_allowance = 0,
       total_salary,
       config_date,
+      effective_from,
     } = req.body;
 
     const [existing]: any = await pool.query(
@@ -175,7 +233,7 @@ export const updateSalary = async (
       return;
     }
 
-     const [empRows]: any = await pool.query(
+    const [empRows]: any = await pool.query(
       `SELECT date FROM employee_lifeline WHERE employee_id = ?`,
       [employee_id],
     );
@@ -195,9 +253,38 @@ export const updateSalary = async (
       return;
     }
 
+    const configDateObj = new Date(config_date);
+    const effectDateObj = new Date(effective_from);
+
+    const year = configDateObj.getFullYear();
+    const month = configDateObj.getMonth();
+
+    const totalDaysInMonth = new Date(year, month, 0).getDate();
+
+    const diffTime = configDateObj.getTime() - effectDateObj.getTime();
+    const effectiveDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
+
+    if (effectiveDays <= 0) {
+      res.status(400).json({
+        message: "Effect date cannot be after config date",
+      });
+
+      return;
+    }
+
+    const perDaySalary = total_salary / totalDaysInMonth;
+    const calculatedSalary = Math.round(perDaySalary * effectiveDays);
+
+    if (effectDateObj.getMonth() !== configDateObj.getMonth()) {
+      res.status(400).json({
+        message: "Effect date must be within same month",
+      });
+      return;
+    }
+
     await pool.query(
       `UPDATE configempsalaries
-       SET salary_amount=?, emp_of_mon_allowance=?, transport_allowance=?, medical_allowance=?, total_salary=?, config_date=?
+       SET salary_amount=?, emp_of_mon_allowance=?, transport_allowance=?, medical_allowance=?, total_salary=?, config_date=? , effective_from=?
        WHERE id=?`,
       [
         salary_amount,
@@ -206,6 +293,7 @@ export const updateSalary = async (
         medical_allowance,
         total_salary,
         config_date,
+        effective_from,
         id,
       ],
     );
