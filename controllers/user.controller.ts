@@ -1,6 +1,8 @@
 import { Request, Response } from "express";
 import pool from "../database/db";
 import bcrypt from "bcryptjs";
+import path from "path";
+import fs from "fs";
 
 const formattedDate = new Date().toLocaleDateString("sv-SE");
 
@@ -16,8 +18,6 @@ export const getAllUsers = async (
     res.status(500).json({ error: "Database query failed" });
   }
 };
-
-
 
 export const addUser = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -62,14 +62,14 @@ export const addUser = async (req: Request, res: Response): Promise<void> => {
        WHERE LOWER(email) = LOWER(?) 
           OR contact = ? 
           OR cnic = ?`,
-      [email, contact, cnic]
+      [email, contact, cnic],
     );
 
     const duplicates: string[] = [];
 
     if (
       existingUsers.some(
-        (u: any) => u.email.toLowerCase() === email.toLowerCase()
+        (u: any) => u.email.toLowerCase() === email.toLowerCase(),
       )
     )
       duplicates.push("Email");
@@ -91,9 +91,33 @@ export const addUser = async (req: Request, res: Response): Promise<void> => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    // Handle image upload
+    let imagePath: string | null = null;
+
+    if (req.files && req.files.image) {
+      const file = req.files.image as any;
+
+      const uploadDir = path.join(__dirname, "../../uploads");
+
+      // Create uploads folder if not exists
+      if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
+      }
+
+      // Create unique filename
+      const fileName = `${Date.now()}-${file.name}`;
+      const uploadPath = path.join(uploadDir, fileName);
+
+      // Move file
+      await file.mv(uploadPath);
+
+      // Save relative path in DB
+      imagePath = `uploads/${fileName}`;
+    }
+
     const query = `
-      INSERT INTO login (name, email, password, contact, cnic, address, date, role)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO login (name, email, password, contact, cnic, address, date, role, image)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     const values = [
@@ -105,6 +129,7 @@ export const addUser = async (req: Request, res: Response): Promise<void> => {
       address,
       formattedDate,
       role,
+      imagePath,
     ];
 
     const [result]: any = await pool.query(query, values);
@@ -119,6 +144,7 @@ export const addUser = async (req: Request, res: Response): Promise<void> => {
       address,
       cnic,
       date,
+      image: imagePath,
     });
   } catch (error) {
     console.error("Error adding user:", error);
@@ -126,10 +152,9 @@ export const addUser = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
-
 export const updateUser = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     const userId = req.params.id;
@@ -159,14 +184,14 @@ export const updateUser = async (
          AND (LOWER(email) = LOWER(?) 
               OR contact = ? 
               OR cnic = ?)`,
-      [userId, email, contact, cnic]
+      [userId, email, contact, cnic],
     );
 
     const duplicates: string[] = [];
 
     if (
       existingUsers.some(
-        (u: any) => u.email.toLowerCase() === email?.toLowerCase()
+        (u: any) => u.email.toLowerCase() === email?.toLowerCase(),
       )
     )
       duplicates.push("Email");
@@ -187,6 +212,33 @@ export const updateUser = async (
     }
 
     const updates: any = { name, email, contact, cnic, address, date, role };
+
+    // Handle image upload
+    // Handle image upload
+    if (req.files && req.files.image) {
+      const file = req.files.image as any;
+
+      const uploadDir = path.join(__dirname, "../../uploads");
+
+      if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
+      }
+
+      const fileName = `${Date.now()}-${file.name}`;
+      const uploadPath = path.join(uploadDir, fileName);
+
+      await file.mv(uploadPath);
+
+      // Delete old image if exists
+      if (user[0].image) {
+        const oldImagePath = path.join(__dirname, "../../", user[0].image);
+        if (fs.existsSync(oldImagePath)) {
+          fs.unlinkSync(oldImagePath);
+        }
+      }
+
+      updates.image = `uploads/${fileName}`;
+    }
 
     if (password) {
       if (password.length < 8 || password.length > 20) {
@@ -225,8 +277,6 @@ export const updateUser = async (
     res.status(500).json({ message: "Internal Server Error" });
   }
 };
-
-
 
 export const deleteUser = async (req: Request, res: Response) => {
   try {

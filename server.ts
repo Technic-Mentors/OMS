@@ -55,7 +55,7 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use(cors());
 app.use(bodyParser.json());
 app.use(fileUpload());
-app.use("/uploads", express.static("uploads"));
+app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
 app.use(
   session({
