@@ -1,16 +1,10 @@
 import { Request, Response } from "express";
 import pool from "../database/db";
 import bcrypt from "bcryptjs";
-import cloudinary from "cloudinary";
+import path from "path";
+import fs from "fs";
 
 const formattedDate = new Date().toLocaleDateString("sv-SE");
-
-// Cloudinary config
-cloudinary.v2.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME!,
-  api_key: process.env.CLOUDINARY_API_KEY!,
-  api_secret: process.env.CLOUDINARY_API_SECRET!,
-});
 
 export const getAllUsers = async (
   req: Request,
@@ -38,22 +32,87 @@ export const addUser = async (req: Request, res: Response): Promise<void> => {
     name = name.charAt(0).toUpperCase() + name.slice(1);
     email = email.toLowerCase();
 
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      res.status(400).json({ message: "Invalid email format" });
+      return;
+    }
+
+    if (!/^\d{11}$/.test(contact)) {
+      res.status(400).json({ message: "Contact must be exactly 11 digits" });
+      return;
+    }
+
+    if (!/^\d{5}-\d{7}-\d{1}$/.test(cnic)) {
+      res
+        .status(400)
+        .json({ message: "CNIC must be in format 12345-6789012-3" });
+      return;
+    }
+
+    if (password.length < 8 || password.length > 20) {
+      res
+        .status(400)
+        .json({ message: "Password must be between 8 and 20 characters" });
+      return;
+    }
+
+    const [existingUsers]: any = await pool.query(
+      `SELECT * FROM login 
+       WHERE LOWER(email) = LOWER(?) 
+          OR contact = ? 
+          OR cnic = ?`,
+      [email, contact, cnic],
+    );
+
+    const duplicates: string[] = [];
+
+    if (
+      existingUsers.some(
+        (u: any) => u.email.toLowerCase() === email.toLowerCase(),
+      )
+    )
+      duplicates.push("Email");
+
+    if (existingUsers.some((u: any) => u.contact === contact))
+      duplicates.push("Phone");
+
+    if (existingUsers.some((u: any) => u.cnic === cnic))
+      duplicates.push("CNIC");
+
+    if (duplicates.length > 0) {
+      const message =
+        duplicates.length === 1
+          ? `${duplicates[0]} already exists!`
+          : `${duplicates.join(" and ")} already exist!`;
+      res.status(400).json({ message });
+      return;
+    }
+
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    // Handle image upload
     let imagePath: string | null = null;
 
-    // Upload image to Cloudinary
     if (req.files && req.files.image) {
       const file = req.files.image as any;
 
-      const result = await cloudinary.v2.uploader.upload(
-        file.tempFilePath || file.data,
-        {
-          folder: "oms_users",
-        },
-      );
+      const uploadDir = path.join(__dirname, "../../uploads");
 
-      imagePath = result.secure_url;
+      // Create uploads folder if not exists
+      if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
+      }
+
+      // Create unique filename
+      const fileName = `${Date.now()}-${file.name}`;
+      const uploadPath = path.join(uploadDir, fileName);
+
+      // Move file
+      await file.mv(uploadPath);
+
+      // Save relative path in DB
+      imagePath = `uploads/${fileName}`;
     }
 
     const query = `
@@ -78,6 +137,13 @@ export const addUser = async (req: Request, res: Response): Promise<void> => {
     res.status(201).json({
       message: "User added successfully",
       userId: result.insertId,
+      name,
+      email,
+      role,
+      contact,
+      address,
+      cnic,
+      date,
       image: imagePath,
     });
   } catch (error) {
@@ -109,32 +175,69 @@ export const updateUser = async (
       return;
     }
 
+    if (name) name = name.charAt(0).toUpperCase() + name.slice(1);
+    if (email) email = email.toLowerCase();
+
+    const [existingUsers]: any = await pool.query(
+      `SELECT * FROM login 
+       WHERE id != ?
+         AND (LOWER(email) = LOWER(?) 
+              OR contact = ? 
+              OR cnic = ?)`,
+      [userId, email, contact, cnic],
+    );
+
+    const duplicates: string[] = [];
+
+    if (
+      existingUsers.some(
+        (u: any) => u.email.toLowerCase() === email?.toLowerCase(),
+      )
+    )
+      duplicates.push("Email");
+
+    if (existingUsers.some((u: any) => u.contact === contact))
+      duplicates.push("Phone");
+
+    if (existingUsers.some((u: any) => u.cnic === cnic))
+      duplicates.push("CNIC");
+
+    if (duplicates.length > 0) {
+      const message =
+        duplicates.length === 1
+          ? `${duplicates[0]} already exists!`
+          : `${duplicates.join(" and ")} already exist!`;
+      res.status(400).json({ message });
+      return;
+    }
+
     const updates: any = { name, email, contact, cnic, address, date, role };
 
-    // Upload new image
+    // Handle image upload
+    // Handle image upload
     if (req.files && req.files.image) {
       const file = req.files.image as any;
 
-      const result = await cloudinary.v2.uploader.upload(
-        file.tempFilePath || file.data,
-        {
-          folder: "oms_users",
-        },
-      );
+      const uploadDir = path.join(__dirname, "../../uploads");
 
-      // Delete old image from Cloudinary
+      if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
+      }
+
+      const fileName = `${Date.now()}-${file.name}`;
+      const uploadPath = path.join(uploadDir, fileName);
+
+      await file.mv(uploadPath);
+
+      // Delete old image if exists
       if (user[0].image) {
-        const publicId = user[0].image
-          .split("/")
-          .pop()
-          ?.split(".")[0];
-
-        if (publicId) {
-          await cloudinary.v2.uploader.destroy(`oms_users/${publicId}`);
+        const oldImagePath = path.join(__dirname, "../../", user[0].image);
+        if (fs.existsSync(oldImagePath)) {
+          fs.unlinkSync(oldImagePath);
         }
       }
 
-      updates.image = result.secure_url;
+      updates.image = `uploads/${fileName}`;
     }
 
     if (password) {
@@ -167,6 +270,7 @@ export const updateUser = async (
     res.status(200).json({
       message: "User updated successfully",
       userId,
+      updatedFields: updates,
     });
   } catch (error) {
     console.error("Error updating user:", error);
@@ -178,9 +282,17 @@ export const deleteUser = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const query = "UPDATE login SET loginStatus = 'N' WHERE id = ?";
-    await pool.query(query, [id]);
+    const [result]: any = await pool.query(query, [id]);
 
-    res.json({ message: "User deleted successfully" });
+    const [getActiveUsers]: any = await pool.query(
+      "SELECT * FROM login WHERE loginStatus = 'Y'",
+    );
+
+    if (result.affectedRows > 0) {
+      res.json({ message: "User deleted successfully", users: getActiveUsers });
+    } else {
+      res.status(404).json({ message: "User not found" });
+    }
   } catch (error) {
     console.error("Error deleting user:", error);
     res.status(500).json({ message: "Internal Server Error" });

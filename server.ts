@@ -1,11 +1,10 @@
 import express, { Application, Request, Response } from "express";
 import path from "path";
+
 import bodyParser from "body-parser";
 import dotenv from "dotenv";
 import cors from "cors";
 import fileUpload from "express-fileupload";
-import session from "express-session";
-
 import loginRoutes from "./routes/login.routes";
 import userRoutes from "./routes/user.routes";
 import employeelifelineRoutes from "./routes/employeelifeline.routes";
@@ -45,36 +44,30 @@ import rejoinRoutes from "./routes/rejoin.routes";
 import userDashboardRoutes from "./routes/userDashboard.routes";
 import salaryCycleRoutes from "./routes/salaryCycle.routes";
 
-dotenv.config();
+import session from "express-session";
 
 const app: Application = express();
+const PORT: number = 3001;
 
-// Middleware
+dotenv.config();
+
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(cors());
 app.use(bodyParser.json());
+app.use(fileUpload());
+app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
-// ✅ Required for Vercel file uploads
-app.use(
-  fileUpload({
-    useTempFiles: true,
-    tempFileDir: "/tmp/",
-  }),
-);
-
-// ⚠️ Session note:
-// For production, consider using a persistent session store (Redis)
-// Default memory store is not ideal for serverless.
 app.use(
   session({
-    secret: process.env.SESSION_SECRET || "your_secret_key",
+    secret: "your_secret_key",
     resave: false,
     saveUninitialized: true,
     cookie: { secure: false },
   }),
 );
 
-// Routes
+app.use(express.static(path.join(__dirname, "dist")));
+
 app.use("/api", loginRoutes);
 app.use("/api/admin", userRoutes);
 app.use("/api/admin", employeelifelineRoutes);
@@ -114,10 +107,16 @@ app.use("/api", rejoinRoutes);
 app.use("/api", userDashboardRoutes);
 app.use("/api", salaryCycleRoutes);
 
-// Health Check
 app.get("/", (req: Request, res: Response) => {
   res.send("Backend is up and running 🚀");
 });
 
-// ✅ DO NOT use app.listen() on Vercel
+app.listen(PORT, () => {
+  console.log(` Backend is running on ${PORT}`);
+});
+
+// app.listen(PORT, "0.0.0.0", () => {
+//   console.log(`Server running on http://192.168.1.2:${PORT}`);
+// });
+
 export default app;

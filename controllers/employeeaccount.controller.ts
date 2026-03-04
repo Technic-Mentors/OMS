@@ -4,71 +4,72 @@ import pool from "../database/db";
 const generateRefNo = async (): Promise<string> => {
   try {
     const [rows]: any = await pool.query(
-      `SELECT id FROM employee_accounts ORDER BY id DESC LIMIT 1`,
+      `SELECT id FROM employee_accounts ORDER BY id ASC LIMIT 1`,
     );
     const nextId = rows.length ? rows[0].id + 1 : 1;
-    return `EA-${Date.now()}-${nextId}`;
+    return `REF-${Date.now()}`;
   } catch (error) {
     console.error("Error generating refNo:", error);
-    return `EA-${Date.now()}`;
+    return `REF-${Date.now()}`;
   }
 };
-
 export const addEmployeeAccount = async (
   req: Request,
   res: Response,
 ): Promise<void> => {
+  // 1. Validate BEFORE getting a connection to save resources
+  const { employee_id, payment_type, amount, payment_method, payment_date } =
+    req.body;
+
+  if (!employee_id || !payment_type || Number(amount) <= 0) {
+    res.status(400).json({ message: "Invalid payload" });
+    return;
+  }
+
+  const connection = await pool.getConnection();
   try {
-    const { employee_id, payment_type, amount, payment_method, payment_date } =
-      req.body;
+    await connection.beginTransaction();
 
-    if (!employee_id || !payment_type || Number(amount) <= 0) {
-      res.status(400).json({ message: "Invalid payload" });
-      return;
-    }
-
-     const [empRows]: any = await pool.query(
-      `SELECT date FROM login WHERE id = ?`,
-      [employee_id],
+    const [rows]: any = await connection.query(
+      `SELECT employee_acc_no FROM invoice_sequence WHERE id = 1 FOR UPDATE`,
     );
 
-    if (!empRows.length) {
-      res.status(404).json({ message: "Employee not found" });
-      return;
+    let nextNumber = 1;
+    if (rows.length > 0) {
+      nextNumber = rows[0].employee_acc_no + 1;
+      await connection.query(
+        `UPDATE invoice_sequence SET employee_acc_no = ? WHERE id = 1`,
+        [nextNumber],
+      );
+    } else {
+      await connection.query(
+        `INSERT INTO invoice_sequence (id, employee_acc_no) VALUES (1, 0)`,
+      );
     }
 
-    const joiningDate = new Date(empRows[0].date);
-    const paymentDateObj = new Date(payment_date);
-
-    if (paymentDateObj < joiningDate) {
-      res.status(400).json({
-        message: "Cannot process payment before employee joining date",
-      });
-      return;
-    }
+    const formattedInvoice = `INV-${String(nextNumber).padStart(4, "0")}`;
+    const [last]: any = await connection.query(
+      `SELECT balance FROM employee_accounts 
+       WHERE employee_id = ? 
+       ORDER BY id ASC LIMIT 1 FOR UPDATE`,
+      [employee_id],
+    );
 
     const debit = payment_type === "debit" ? Number(amount) : 0;
     const credit = payment_type === "credit" ? Number(amount) : 0;
-
-    const [last]: any = await pool.query(
-      `SELECT balance FROM employee_accounts 
-       WHERE employee_id = ? 
-       ORDER BY id DESC LIMIT 1`,
-      [employee_id],
-    );
-
     const previousBalance = last.length ? Number(last[0].balance) : 0;
-    const currentBalance = previousBalance + Number(debit) - Number(credit);
+    const currentBalance = previousBalance + debit - credit;
 
-    const refNo = await generateRefNo();
+    const refNo = `REF-${Date.now()}`;
 
-    await pool.query(
+    await connection.query(
       `INSERT INTO employee_accounts 
-      (employee_id, refNo, payment_date, debit, credit, balance, payment_method)
-      VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      (employee_id, refNo, invoiceNo, payment_date, debit, credit, balance, payment_method)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         employee_id,
         refNo,
+        formattedInvoice,
         payment_date,
         debit,
         credit,
@@ -77,12 +78,16 @@ export const addEmployeeAccount = async (
       ],
     );
 
+    await connection.commit();
     res
       .status(201)
       .json({ message: "Employee account entry added successfully" });
   } catch (error: any) {
+    if (connection) await connection.rollback();
     console.error("Add Employee Account Error:", error.message || error);
     res.status(500).json({ message: "Server error" });
+  } finally {
+    if (connection) connection.release();
   }
 };
 
@@ -98,7 +103,7 @@ export const getEmployeeAccount = async (
     }
 
     const [rows]: any = await pool.query(
-      `SELECT id, refNo, debit, credit, payment_method, payment_date, balance
+      `SELECT id, refNo, invoiceNo, debit, credit, payment_method, payment_date, balance
        FROM employee_accounts
        WHERE employee_id = ?
        ORDER BY payment_date ASC, id ASC`,
@@ -126,7 +131,7 @@ export const getEmployeeAccountForUser = async (
     const employee_id = user.id;
 
     const [rows]: any = await pool.query(
-      `SELECT id, refNo, debit, credit, payment_method, payment_date, balance
+      `SELECT id,  refNo, invoiceNo,  debit, credit, payment_method, payment_date, balance
        FROM employee_accounts
        WHERE employee_id = ?
        ORDER BY payment_date ASC, id ASC`,

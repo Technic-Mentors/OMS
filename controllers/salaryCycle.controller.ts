@@ -10,7 +10,7 @@ export const runSalaryCycle = async (
 
     const [existing]: any = await pool.query(
       `SELECT id FROM employee_accounts WHERE refNo LIKE ? LIMIT 1`,
-      [`SAL-${month}-${year}-%`],
+      [`SALARY-${month}-${year}-%`],
     );
 
     if (existing.length > 0) {
@@ -101,26 +101,59 @@ export const runSalaryCycle = async (
       }
 
       const [last]: any = await pool.query(
-        `SELECT balance FROM employee_accounts WHERE employee_id=? ORDER BY id DESC LIMIT 1`,
+        `SELECT balance FROM employee_accounts WHERE employee_id=? ORDER BY id ASC LIMIT 1`,
         [sal.employee_id],
       );
 
       const previousBalance = last.length ? Number(last[0].balance) : 0;
       const credit = 0;
       const currentBalance = previousBalance + debit - credit;
-      const refNo = `SAL-${month}-${year}-${sal.employee_id}`;
+      const refNo = `SALARY-${month}-${year}-${sal.employee_id}`;
 
-      await pool.query(
-        `INSERT INTO employee_accounts 
-        (employee_id, debit, credit, refNo, payment_date, payment_method, balance) 
-        VALUES (?, ?, ?, ?, NOW(), ?, ?)`,
-        [sal.employee_id, debit, credit, refNo, "Cash", currentBalance],
-      );
-    }
+      const connection = await pool.getConnection();
+      try {
+        await connection.beginTransaction();
 
-    res.json({
-      message: "Salary cycle run successfully",
-    });
+        const [rows]: any = await connection.query(
+          `SELECT employee_acc_no FROM invoice_sequence WHERE id = 1 FOR UPDATE`,
+        );
+
+        let nextNumber = 1;
+        if (rows.length > 0) {
+          nextNumber = rows[0].employee_acc_no + 1;
+          await connection.query(
+            `UPDATE invoice_sequence SET employee_acc_no = ? WHERE id = 1`,
+            [nextNumber],
+          );
+        }
+
+        const formattedInvoice = `INV-${String(nextNumber).padStart(4, "0")}`;
+
+        await connection.query(
+          `INSERT INTO employee_accounts 
+    (employee_id, debit, credit, refNo, invoiceNo, payment_date, payment_method, balance) 
+    VALUES (?, ?, ?, ?, ?, NOW(), ?, ?)`,
+          [
+            sal.employee_id,
+            debit,
+            credit,
+            refNo,
+            formattedInvoice, // Added this
+            "Cash",
+            currentBalance,
+          ],
+        );
+
+        await connection.commit();
+      } catch (err) {
+        await connection.rollback();
+        throw err;
+      } finally {
+        connection.release();
+      }
+    } 
+
+    res.json({ message: "Salary cycle run successfully" });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Error running salary cycle" });

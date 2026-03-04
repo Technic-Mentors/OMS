@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import pool from "../database/db";
+import { RowDataPacket, ResultSetHeader } from "mysql2";
 
 export const getSupplierAcc = async (req: Request, res: Response) => {
   try {
@@ -29,25 +30,59 @@ export const getSuppliers = async (req: Request, res: Response) => {
 };
 
 export const addSupplierAcc = async (req: Request, res: Response) => {
-  const { supplierId, paymentType, amount, paymentMethod, paymentDate } =
-    req.body;
+  const { supplierId, paymentType, amount, paymentMethod, paymentDate } = req.body;
+
+  // Get a connection from the pool
+  const connection = await pool.getConnection();
 
   try {
-    const refNo = `SUP-${Date.now()}`;
+    // Start the transaction
+    await connection.beginTransaction();
 
+    // 1. Get the current sequence number (Use 'connection', not 'pool')
+    const [rows] = await connection.query<RowDataPacket[]>(
+      `SELECT supplier_acc_no FROM invoice_sequence WHERE id = 1 FOR UPDATE`,
+    );
+
+    let currentNumber = 0;
+    if (rows.length > 0) {
+      currentNumber = rows[0].supplier_acc_no;
+    } else {
+      await connection.query(
+        `INSERT INTO invoice_sequence (id, supplier_acc_no) VALUES (1, 0)`,
+      );
+    }
+
+    const nextNumber = currentNumber + 1;
+
+    // 2. Update the sequence
+    await connection.query(
+      `UPDATE invoice_sequence SET supplier_acc_no = ? WHERE id = 1`,
+      [nextNumber],
+    );
+
+    const formattedInvoice = `INV-${String(nextNumber).padStart(4, "0")}`;
+    const refNo = `REF-${Date.now()}`;
     const debit = paymentType === "debit" ? amount : 0;
     const credit = paymentType === "credit" ? amount : 0;
 
-    await pool.query(
+    // 3. Insert into accounts (CRITICAL: Use 'connection', not 'pool')
+    await connection.query(
       `INSERT INTO supplier_accounts
-      (supplierId, refNo, debit, credit, paymentMethod, paymentDate)
-      VALUES (?, ?, ?, ?, ?, ?)`,
-      [supplierId, refNo, debit, credit, paymentMethod, paymentDate],
+      (supplierId , invoiceNo, refNo, debit, credit, paymentMethod, paymentDate)
+      VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [supplierId, formattedInvoice, refNo, debit, credit, paymentMethod, paymentDate],
     );
 
+    await connection.commit();
+
     res.status(201).json({ message: "Supplier account added" });
-  } catch {
+  } catch (error) {
+    await connection.rollback();
+    console.error("Database Error:", error); 
     res.status(500).json({ message: "Failed to add supplier account" });
+  } finally {
+    connection.release();
   }
 };
 
@@ -81,7 +116,7 @@ export const getSupplierAccounts = async (req: Request, res: Response) => {
 
   try {
     const [rows]: any = await pool.query(
-      `SELECT id, refNo, debit, credit,paymentMethod, paymentDate
+      `SELECT id, invoiceNo, refNo, debit, credit,paymentMethod, paymentDate
        FROM supplier_accounts
        WHERE supplierId = ?
        ORDER BY createdAt ASC`,

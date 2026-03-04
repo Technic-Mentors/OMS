@@ -6,6 +6,7 @@ export const getSales = async (req: Request, res: Response) => {
     const [rows] = await pool.query(`
       SELECT
   s.id AS id,
+  s.invoiceNo,
   s.customerId,
   c.customerName,
   DATE_FORMAT(s.saleDate, '%Y-%m-%d') AS saleDate,
@@ -30,6 +31,7 @@ ORDER BY s.id DESC;
 };
 
 export const addSale = async (req: Request, res: Response): Promise<void> => {
+  const connection = await pool.getConnection();
   try {
     const { customerId, saleDate, items } = req.body;
 
@@ -38,9 +40,30 @@ export const addSale = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
+    await connection.beginTransaction();
+
+    const [rows]: any = await connection.query(
+      `SELECT sale_number FROM invoice_sequence WHERE id = 1 FOR UPDATE`,
+    );
+
+    let nextNumber = 1;
+    if (rows.length > 0) {
+      nextNumber = rows[0].sale_number + 1;
+      await connection.query(
+        `UPDATE invoice_sequence SET sale_number = ? WHERE id = 1`,
+        [nextNumber],
+      );
+    } else {
+      await connection.query(
+        `INSERT INTO invoice_sequence (id, sale_number) VALUES (1, 0)`,
+      );
+    }
+
+    const formattedInvoice = `INV-${String(nextNumber).padStart(4, "0")}`;
+
     const [saleResult]: any = await pool.query(
-      `INSERT INTO sales (customerId, saleDate, salesStatus) VALUES (?, ?, 'Y')`,
-      [customerId, saleDate],
+      `INSERT INTO sales (customerId, invoiceNo, saleDate, salesStatus) VALUES (?, ?, ?, 'Y')`,
+      [customerId, formattedInvoice, saleDate],
     );
 
     const saleId = saleResult.insertId;
@@ -77,8 +100,12 @@ export const addSale = async (req: Request, res: Response): Promise<void> => {
 
     res.status(201).json({ message: "Sale added successfully" });
   } catch (error) {
+    await connection.rollback();
+
     console.error(error);
     res.status(500).json({ message: "Failed to add sale" });
+  } finally {
+    connection.release();
   }
 };
 

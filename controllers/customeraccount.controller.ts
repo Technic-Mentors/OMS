@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import pool from "../database/db";
+import { RowDataPacket } from "mysql2";
 
 export const getCustomerAccountsList = async (req: Request, res: Response) => {
   try {
@@ -29,25 +30,64 @@ export const getAllCustomers = async (req: Request, res: Response) => {
 };
 
 export const addCustomerAccount = async (req: Request, res: Response) => {
-  const { customerId, paymentType, amount, paymentMethod, paymentDate } =
-    req.body;
+  // 1. Destructure debit and credit directly from req.body
+  const { customerId, debit, credit, paymentMethod, paymentDate } = req.body;
+
+  const connection = await pool.getConnection();
 
   try {
-    const refNo = `CUS-${Date.now()}`;
+    await connection.beginTransaction();
 
-    const debit = paymentType === "debit" ? amount : 0;
-    const credit = paymentType === "credit" ? amount : 0;
-
-    await pool.query(
-      `INSERT INTO customer_accounts
-      (customerId, refNo, debit, credit, paymentMethod, paymentDate)
-      VALUES (?, ?, ?, ?, ?, ?)`,
-      [customerId, refNo, debit, credit, paymentMethod, paymentDate],
+    const [rows] = await connection.query<RowDataPacket[]>(
+      `SELECT customer_acc_no FROM invoice_sequence WHERE id = 1 FOR UPDATE`,
     );
 
-    res.status(201).json({ message: "Customer account added" });
+    let currentNumber = 0;
+    if (rows.length > 0) {
+      currentNumber = rows[0].customer_acc_no;
+    } else {
+      await connection.query(
+        `INSERT INTO invoice_sequence (id, customer_acc_no) VALUES (1, 0)`,
+      );
+      currentNumber = 0;
+    }
+
+    const nextNumber = currentNumber + 1;
+
+    await connection.query(
+      `UPDATE invoice_sequence SET customer_acc_no = ? WHERE id = 1`,
+      [nextNumber],
+    );
+
+    const formattedInvoice = `INV-${String(nextNumber).padStart(4, "0")}`;
+    const refNo = `REF-${Date.now()}`;
+
+    // 2. Use the values passed from the frontend directly
+    await connection.query(
+      `INSERT INTO customer_accounts 
+      (customerId, refNo, invoiceNo, debit, credit, paymentMethod, paymentDate) 
+      VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [
+        customerId,
+        refNo,
+        formattedInvoice,
+        debit,
+        credit,
+        paymentMethod,
+        paymentDate,
+      ],
+    );
+
+    await connection.commit();
+    res
+      .status(201)
+      .json({ message: "Customer account added", invoiceNo: formattedInvoice });
   } catch (err) {
+    await connection.rollback();
+    console.error(err);
     res.status(500).json({ message: "Failed to add customer account" });
+  } finally {
+    connection.release();
   }
 };
 
@@ -83,8 +123,9 @@ export const getCustomerAccountsByCustomerId = async (
   const { id } = req.params;
 
   try {
+    // Added invoiceNo to the SELECT statement
     const [rows]: any = await pool.query(
-      `SELECT id, refNo, debit, credit, paymentMethod, paymentDate
+      `SELECT id, refNo, invoiceNo, debit, credit, paymentMethod, paymentDate
        FROM customer_accounts
        WHERE customerId = ?
        ORDER BY createdAt ASC`,
