@@ -1,7 +1,9 @@
 import express, { Application, Request, Response } from "express";
+// import fileUpload from "express-fileupload";
 
 import path from "path";
 import cloudinary from "./utils/cloudinary";
+import bodyParser from "body-parser";
 import dotenv from "dotenv";
 
 import cors from "cors";
@@ -74,11 +76,23 @@ if (
   console.log("✅ Cloudinary configuration loaded");
 }
 
+app.use(bodyParser.urlencoded({ extended: true }));
 app.use(cors());
+app.use(bodyParser.json());
 
-app.use(express.urlencoded({ extended: true , limit: "5mb" }));
-app.use(express.json({ limit: "5mb" }));
+// app.use(fileUpload());
+// Add option
 
+// app.use(
+//   fileUpload({
+//     limits: { fileSize: 4 * 1024 * 1024 }, // Increased to 10MB
+//     abortOnLimit: true,
+//     responseOnLimit: "File size limit exceeded. Max size is 10MB",
+//     useTempFiles: false,
+//     debug: true, // Enable debug mode temporarily
+//     createParentPath: true,
+//   }),
+// );
 
 app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
