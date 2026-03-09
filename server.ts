@@ -74,8 +74,9 @@ if (
   console.log("✅ Cloudinary configuration loaded");
 }
 
-app.use(express.urlencoded({ extended: true , limit: "5mb" }));
 app.use(cors());
+
+app.use(express.urlencoded({ extended: true , limit: "5mb" }));
 app.use(express.json({ limit: "5mb" }));
 
 
