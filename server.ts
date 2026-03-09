@@ -1,5 +1,4 @@
 import express, { Application, Request, Response } from "express";
-// import fileUpload from "express-fileupload";
 
 import path from "path";
 import cloudinary from "./utils/cloudinary";
@@ -71,9 +70,9 @@ if (
   !process.env.CLOUDINARY_API_KEY ||
   !process.env.CLOUDINARY_API_SECRET
 ) {
-  console.error("❌ Cloudinary configuration missing!");
+  console.error("Cloudinary configuration missing!");
 } else {
-  console.log("✅ Cloudinary configuration loaded");
+  console.log("Cloudinary configuration loaded");
 }
 
 app.use(bodyParser.urlencoded({ extended: true }));

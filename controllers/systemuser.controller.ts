@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import pool from "../database/db";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
