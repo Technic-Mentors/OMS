@@ -40,8 +40,15 @@ export const getAttendance = async (
     }
 
     const [rules]: any = await pool.query(
-      "SELECT * FROM attendance_rules ORDER BY id DESC LIMIT 1",
+      "SELECT * FROM attendance_rules WHERE status = 'Active' LIMIT 1",
     );
+
+    if (!rules.length) {
+      res.status(400).json({
+        message: "Firstly configure Attendance Rule.",
+      });
+      return;
+    }
 
     if (rules.length) {
       const { offDay } = rules[0];
@@ -122,10 +129,10 @@ export const markAttendance = async (
     }
 
     const [rules]: any = await pool.query(
-      "SELECT * FROM attendance_rules LIMIT 1",
+      "SELECT * FROM attendance_rules WHERE status = 'Active' LIMIT 1",
     );
     if (!rules.length) {
-      res.status(500).json({ message: "Attendance rules not configured" });
+      res.status(400).json({ message: "Attendance rules not configured" });
       return;
     }
     const { lateTime, halfLeave, offDay } = rules[0];

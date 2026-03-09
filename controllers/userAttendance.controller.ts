@@ -37,7 +37,7 @@ const calculateWorkingHours = (clockIn: string, clockOut: string) => {
 
 const getAttendanceRule = async () => {
   const [rows]: any = await pool.query(
-    "SELECT * FROM attendance_rules ORDER BY id DESC LIMIT 1",
+    "SELECT * FROM attendance_rules WHERE status = 'Active' DESC LIMIT 1",
   );
   return rows.length ? rows[0] : null;
 };
@@ -112,6 +112,13 @@ export const addAttendance = async (
     const formattedDate = toMySQLDate(date);
 
     const rule = await getAttendanceRule();
+
+    if (!rule) {
+      res.status(400).json({
+        message: "Firstly configure Attendance Rule.",
+      });
+      return;
+    }
 
     if (rule && rule.offDay) {
       const dayName = new Date(formattedDate!).toLocaleDateString("en-US", {

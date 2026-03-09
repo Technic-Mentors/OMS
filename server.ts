@@ -1,10 +1,10 @@
 import express, { Application, Request, Response } from "express";
-import path from "path";
 
-import bodyParser from "body-parser";
+import path from "path";
+import cloudinary from "./utils/cloudinary";
 import dotenv from "dotenv";
+
 import cors from "cors";
-import fileUpload from "express-fileupload";
 import loginRoutes from "./routes/login.routes";
 import userRoutes from "./routes/user.routes";
 import employeelifelineRoutes from "./routes/employeelifeline.routes";
@@ -43,18 +43,42 @@ import resignationRoutes from "./routes/resignation.routes";
 import rejoinRoutes from "./routes/rejoin.routes";
 import userDashboardRoutes from "./routes/userDashboard.routes";
 import salaryCycleRoutes from "./routes/salaryCycle.routes";
+import rolesRoutes from "./routes/roles.routes";
+import systemUsersRoutes from "./routes/systemuser.routes";
+import accesscontrolRoutes from "./routes/accesscontrol.routes";
 
 import session from "express-session";
-
 const app: Application = express();
 const PORT: number = 3001;
 
 dotenv.config();
 
-app.use(bodyParser.urlencoded({ extended: true }));
+console.log("Environment variables loaded:");
+console.log("CLOUDINARY_CLOUD_NAME:", process.env.CLOUDINARY_CLOUD_NAME);
+console.log(
+  "CLOUDINARY_API_KEY:",
+  process.env.CLOUDINARY_API_KEY ? "Present" : "Missing",
+);
+console.log(
+  "CLOUDINARY_API_SECRET:",
+  process.env.CLOUDINARY_API_SECRET ? "Present" : "Missing",
+);
+
+if (
+  !process.env.CLOUDINARY_CLOUD_NAME ||
+  !process.env.CLOUDINARY_API_KEY ||
+  !process.env.CLOUDINARY_API_SECRET
+) {
+  console.error("❌ Cloudinary configuration missing!");
+} else {
+  console.log("✅ Cloudinary configuration loaded");
+}
+
+app.use(express.urlencoded({ extended: true , limit: "5mb" }));
 app.use(cors());
-app.use(bodyParser.json());
-app.use(fileUpload());
+app.use(express.json({ limit: "5mb" }));
+
+
 app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
 app.use(
@@ -67,7 +91,6 @@ app.use(
 );
 
 app.use(express.static(path.join(__dirname, "dist")));
-
 app.use("/api", loginRoutes);
 app.use("/api/admin", userRoutes);
 app.use("/api/admin", employeelifelineRoutes);
@@ -106,17 +129,31 @@ app.use("/api", resignationRoutes);
 app.use("/api", rejoinRoutes);
 app.use("/api", userDashboardRoutes);
 app.use("/api", salaryCycleRoutes);
-
+app.use("/api/admin", rolesRoutes);
+app.use("/api/admin", systemUsersRoutes);
+app.use("/api/admin", accesscontrolRoutes);
 app.get("/", (req: Request, res: Response) => {
   res.send("Backend is up and running 🚀");
 });
 
+app.get("/cloudinary-test", async (req, res) => {
+  try {
+    const result = await cloudinary.uploader.upload(
+      "https://res.cloudinary.com/demo/image/upload/sample.jpg",
+    );
+    res.json(result);
+  } catch (error) {
+    console.error("Cloudinary test upload error:", error);
+    res.status(500).json({ error });
+  }
+});
+
 app.listen(PORT, () => {
-  console.log(` Backend is running on ${PORT}`);
+  console.log(`Backend is running on ${PORT}`);
 });
 
 // app.listen(PORT, "0.0.0.0", () => {
-//   console.log(`Server running on http://192.168.1.2:${PORT}`);
+// console.log(`Server running on http://192.168.1.2:${PORT}`);
 // });
 
 export default app;

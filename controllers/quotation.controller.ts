@@ -50,6 +50,7 @@ export const getQuotation = async (
 
     if (!quotations[0]) {
       res.status(404).json({ message: "Quotation not found" });
+      return;
     }
 
     const [items] = await pool.query<RowDataPacket[]>(

@@ -8,6 +8,9 @@ interface AttendanceRule {
   offDay: string;
   lateTime: string;
   halfLeave: string;
+  month: string;
+  year: string;
+  status?: string;
 }
 
 export const getAllConfigTime = async (
@@ -30,42 +33,34 @@ export const addConfigTime = async (
   res: Response,
 ): Promise<void> => {
   try {
-    const { startTime, endTime, offDay, lateTime, halfLeave } =
+    const { startTime, endTime, offDay, lateTime, halfLeave, month, year } =
       req.body as AttendanceRule;
 
-    if (!startTime || !endTime || !offDay || !lateTime || !halfLeave) {
+    if (
+      !startTime ||
+      !endTime ||
+      !offDay ||
+      !lateTime ||
+      !halfLeave ||
+      !year ||
+      !month
+    ) {
       res.status(400).json({ message: "All fields are required" });
       return;
     }
 
-    if (
-      halfLeave < startTime ||
-      (halfLeave > endTime && lateTime < startTime) ||
-      lateTime > endTime
-    ) {
-      res.status(400).json({
-        message: "Late and Half Leave Time must be within Office Hours",
-      });
+    if (startTime >= endTime) {
+      res.status(400).json({ message: "Start Time must be before End Time" });
       return;
     }
 
-    if (lateTime < startTime || lateTime > endTime) {
-      res
-        .status(400)
-        .json({ message: "Late Time must be within Office Hours" });
-      return;
-    }
-
-    if (halfLeave < startTime || halfLeave > endTime) {
-      res
-        .status(400)
-        .json({ message: "Half Leave must be within Office Hours" });
-      return;
-    }
+    await pool.query("UPDATE attendance_rules SET status = 'Inactive'");
 
     const [result] = await pool.query(
-      "INSERT INTO attendance_rules (startTime, endTime, offDay, lateTime, halfLeave) VALUES (?, ?, ?, ?, ?)",
-      [startTime, endTime, offDay, lateTime, halfLeave],
+      `INSERT INTO attendance_rules 
+       (startTime, endTime, offDay, lateTime, halfLeave, month, year, status) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [startTime, endTime, offDay, lateTime, halfLeave, month, year, "Active"],
     );
 
     res.status(201).json({
@@ -77,17 +72,49 @@ export const addConfigTime = async (
     res.status(500).json({ message: "Server Error" });
   }
 };
-
 export const updateConfigTime = async (
   req: Request,
   res: Response,
 ): Promise<void> => {
   try {
     const { id } = req.params;
-    const { startTime, endTime, offDay, lateTime, halfLeave } =
-      req.body as AttendanceRule;
+    const {
+      startTime,
+      endTime,
+      offDay,
+      lateTime,
+      halfLeave,
+      month,
+      year,
+      status,
+    } = req.body as AttendanceRule;
 
-    if (!startTime || !endTime || !offDay || !lateTime || !halfLeave) {
+    const [existing]: any = await pool.query(
+      "SELECT status FROM attendance_rules WHERE id = ? LIMIT 1",
+      [id],
+    );
+
+    if (!existing.length) {
+      res.status(404).json({ message: "Attendance rule not found" });
+      return;
+    }
+
+    if (existing[0].status !== "Active") {
+      res.status(400).json({
+        message: "Only Active attendance rule can be edited",
+      });
+      return;
+    }
+
+    if (
+      !startTime ||
+      !endTime ||
+      !offDay ||
+      !lateTime ||
+      !halfLeave ||
+      !month ||
+      !year
+    ) {
       res.status(400).json({ message: "All fields are required" });
       return;
     }
@@ -119,9 +146,26 @@ export const updateConfigTime = async (
 
     const [result] = await pool.query(
       `UPDATE attendance_rules 
-       SET startTime = ?, endTime = ?, offDay = ?, lateTime = ?, halfLeave = ? 
-       WHERE id = ?`,
-      [startTime, endTime, offDay, lateTime, halfLeave, id],
+   SET startTime = ?, 
+       endTime = ?, 
+       offDay = ?, 
+       lateTime = ?, 
+       halfLeave = ?, 
+       month = ?, 
+       year = ?, 
+       status = ?
+   WHERE id = ?`,
+      [
+        startTime,
+        endTime,
+        offDay,
+        lateTime,
+        halfLeave,
+        month,
+        year,
+        status ?? "Active",
+        id,
+      ],
     );
 
     res.json({ message: "Attendance rule updated successfully" });

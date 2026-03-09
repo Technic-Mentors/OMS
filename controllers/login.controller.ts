@@ -4,21 +4,27 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 
 const saltRounds = 10;
+const SECRET_KEY = "your_secret_key";
 
 export const login = async (req: Request, res: Response): Promise<void> => {
   try {
     const { email, password } = req.body;
 
+    if (!email || !password) {
+      res
+        .status(400)
+        .json({ status: 400, message: "Email and password are required" });
+      return;
+    }
+
+    const lowerEmail = email.toLowerCase().trim();
+
     const HARD_ADMIN_EMAIL = "oms@technicmentors.com";
     const HARD_ADMIN_PASSWORD = "12345678";
-    const HARD_ADMIN_NAME = "OMS";
-    const HARD_ADMIN_CONTACT = "123456789101";
-    const HARD_ADMIN_CNIC = "12345-6789101-1";
-    const HARD_ADMIN_USERID = "52";
 
-    if (email === HARD_ADMIN_EMAIL) {
-      const isMatch = password === HARD_ADMIN_PASSWORD;
-      if (!isMatch) {
+    // HARD ADMIN LOGIN
+    if (lowerEmail === HARD_ADMIN_EMAIL) {
+      if (password !== HARD_ADMIN_PASSWORD) {
         res
           .status(400)
           .json({ status: 400, message: "Invalid email or password" });
@@ -27,29 +33,42 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 
       const token = jwt.sign(
         { email: HARD_ADMIN_EMAIL, role: "admin", id: 0 },
-        "your_secret_key",
+        SECRET_KEY,
         { expiresIn: "1d" },
       );
 
       res.json({
         status: 200,
+        message: "Login successful",
         token,
-        userId: HARD_ADMIN_USERID,
-        name: HARD_ADMIN_NAME,
+        userId: "52",
+        name: "OMS",
         email: HARD_ADMIN_EMAIL,
         role: "admin",
-        contact: HARD_ADMIN_CONTACT,
-        cnic: HARD_ADMIN_CNIC,
+        permissions: ["ALL"], // Hard admin ko full access
+        contact: "123456789101",
+        cnic: "12345-6789101-1",
         date: new Date().toISOString().split("T")[0],
         image: "",
+        source: "hardcoded",
       });
       return;
     }
 
-    const [users]: any = await pool.query(
-      "SELECT * FROM login WHERE email = ?",
-      [email],
-    );
+    // CHECK LOGIN TABLE
+    let [users]: any = await pool.query("SELECT * FROM login WHERE email = ?", [
+      lowerEmail,
+    ]);
+    let tableSource = "login";
+
+    // CHECK SYSTEM_USERS TABLE
+    if (users.length === 0) {
+      [users] = await pool.query(
+        "SELECT * FROM system_users WHERE LOWER(email) = ?",
+        [lowerEmail],
+      );
+      tableSource = "system_users";
+    }
 
     if (users.length === 0) {
       res
@@ -60,25 +79,34 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 
     const user = users[0];
 
-    if (user.loginStatus === "N") {
+    // ACCOUNT STATUS CHECK
+    const isActive =
+      tableSource === "login"
+        ? user.loginStatus === "Y"
+        : user.status === "Active";
+
+    if (!isActive) {
       res.status(403).json({
         status: 403,
-        message: "Your account is withdrawn. Contact admin to reactivate.",
+        message: "Your account is inactive. Please contact the administrator.",
       });
       return;
     }
 
+    // PASSWORD CHECK
     let storedPassword = user.password;
-    if (!storedPassword.startsWith("$2b$")) {
+
+    if (tableSource === "login" && !storedPassword.startsWith("$2b$")) {
       const hashedPassword = await bcrypt.hash(storedPassword, saltRounds);
       await pool.query("UPDATE login SET password = ? WHERE email = ?", [
         hashedPassword,
-        email,
+        lowerEmail,
       ]);
       storedPassword = hashedPassword;
     }
 
     const isMatch = await bcrypt.compare(password, storedPassword);
+
     if (!isMatch) {
       res
         .status(400)
@@ -86,13 +114,32 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
+    // FETCH PERMISSIONS BASED ON ROLE
+    let allowedModules: string[] = [];
+
+    const roleIdToUse = user.roleId;
+
+    if (roleIdToUse) {
+      const [permissions]: any = await pool.query(
+        `SELECT m.moduleName
+     FROM access_control ac
+     JOIN modules m ON ac.moduleId = m.id
+     WHERE ac.roleId = ? AND ac.status = 1`,
+        [roleIdToUse],
+      );
+
+      allowedModules = permissions.map((p: any) => p.moduleName);
+    }
+
+    // TOKEN
     const token = jwt.sign(
-      { email: user.email, role: user.role, id: user.id },
-      "your_secret_key",
+      { id: user.id, email: user.email, role: user.role, source: tableSource },
+      SECRET_KEY,
       { expiresIn: "1d" },
     );
 
-    res.json({
+    // SUCCESS RESPONSE
+    res.status(200).json({
       status: 200,
       message: "Login successful",
       token,
@@ -100,13 +147,16 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       name: user.name,
       email: user.email,
       role: user.role,
-      contact: user.contact,
+      roleId: user.roleId,
+      permissions: allowedModules, // MODULE PERMISSIONS
+      contact: tableSource === "login" ? user.contact : user.phone,
       cnic: user.cnic,
-      date: user.date,
-      image: user.image,
+      date: user.date || user.created_at,
+      image: user.image || "",
+      source: tableSource,
     });
   } catch (error) {
-    console.error("Login Error:", error);
+    console.error("Multi-Table Login Error:", error);
     res.status(500).json({ status: 500, message: "Internal Server Error" });
   }
 };
