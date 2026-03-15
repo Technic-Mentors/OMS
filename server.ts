@@ -47,6 +47,7 @@ import salaryCycleRoutes from "./routes/salaryCycle.routes";
 import rolesRoutes from "./routes/roles.routes";
 import systemUsersRoutes from "./routes/systemuser.routes";
 import accesscontrolRoutes from "./routes/accesscontrol.routes";
+import accountReportRoutes from "./routes/accountreport.routes";
 
 import session from "express-session";
 const app: Application = express();
@@ -78,8 +79,6 @@ if (
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(cors());
 app.use(bodyParser.json());
-
-
 
 app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
@@ -121,7 +120,7 @@ app.use("/api/admin", quotationRoutes);
 app.use("/api/admin", calendarRoutes);
 app.use("/api/admin", configuresalaryRoutes);
 app.use("/api", employeeaccountRoutes);
-app.use("/api", overtimeRoutes);
+app.use("/api/admin", overtimeRoutes);
 app.use("/api", advancesalaryRoutes);
 app.use("/api", loanRoutes);
 app.use("/api/admin", customeraccountRoutes);
@@ -134,6 +133,8 @@ app.use("/api", salaryCycleRoutes);
 app.use("/api/admin", rolesRoutes);
 app.use("/api/admin", systemUsersRoutes);
 app.use("/api/admin", accesscontrolRoutes);
+app.use("/api/admin", accountReportRoutes);
+
 app.get("/", (req: Request, res: Response) => {
   res.send("Backend is up and running 🚀");
 });
@@ -155,7 +156,7 @@ app.listen(PORT, () => {
 });
 
 // app.listen(PORT, "0.0.0.0", () => {
-// console.log(`Server running on http://192.168.1.2:${PORT}`);
+//   console.log(`Server running on http://192.168.1.3:${PORT}`);
 // });
 
 export default app;

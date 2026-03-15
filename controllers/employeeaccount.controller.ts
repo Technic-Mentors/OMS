@@ -147,3 +147,19 @@ export const getEmployeeAccountForUser = async (
     res.status(500).json({ message: "Server error" });
   }
 };
+
+export const getAllEmployeesAccounts = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  try {
+    const [rows]: any = await pool.query(
+      `SELECT id, debit, credit, payment_date FROM employee_accounts ORDER BY payment_date ASC`
+    );
+
+    res.json({ accounts: rows });
+  } catch (error: any) {
+    console.error("Get All Employee Accounts Error:", error.message || error);
+    res.status(500).json({ message: "Server error" });
+  }
+};

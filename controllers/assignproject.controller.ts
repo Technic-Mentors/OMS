@@ -62,6 +62,30 @@ export const getMyAssignProjects = async (req: Request, res: Response) => {
   }
 };
 
+// assignproject.controller.ts mein add karein
+
+export const getProjectsByUserId = async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.params;
+    const query = `
+      SELECT 
+        ap.id,
+        ap.date,
+        p.projectName,
+        p.projectCategory
+      FROM assignedprojects ap
+      JOIN projects p ON p.id = ap.projectId
+      WHERE ap.employee_id = ? AND ap.assignStatus = 'Y'
+      ORDER BY ap.date DESC
+    `;
+    const [rows] = await pool.query(query, [userId]);
+    res.json(rows);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
 export const addAssignProject = async (
   req: Request,
   res: Response,

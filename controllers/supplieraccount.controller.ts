@@ -134,3 +134,16 @@ export const getSupplierAccounts = async (req: Request, res: Response) => {
     res.status(500).json({ message: "Failed to fetch supplier accounts" });
   }
 };
+
+export const getAllSupplierAccounts = async (req: Request, res: Response) => {
+  try {
+    const [rows]: any = await pool.query(
+      `SELECT id, supplierId, invoiceNo, refNo, debit, credit, paymentMethod, paymentDate
+       FROM supplier_accounts
+       ORDER BY paymentDate ASC`
+    );
+    res.json(rows);
+  } catch (error) {
+    res.status(500).json({ message: "Failed to fetch all supplier accounts" });
+  }
+};

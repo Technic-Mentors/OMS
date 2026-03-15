@@ -1,7 +1,6 @@
 import { Request, Response } from "express";
 import pool from "../database/db";
 
-// Helper function
 const validateOvertime = (time: string) => {
   const regex = /^(\d{1,2}):([0-5]?\d):([0-5]?\d)$/;
   const match = time.match(regex);
@@ -21,7 +20,7 @@ const validateOvertime = (time: string) => {
   return true;
 };
 
-export const getAllOvertime = async (req: Request, res: Response) => {
+export const getOvertime = async (req: Request, res: Response) => {
   try {
     const [rows]: any = await pool.query(`
       SELECT 
@@ -29,10 +28,9 @@ export const getAllOvertime = async (req: Request, res: Response) => {
         o.employee_id,
         u.name,
         o.date,
-        o.time AS totalTime,
-          o.description,
-
-        o.approval_status AS approvalStatus
+        o.time,
+        o.overtime_amount,
+        o.description
       FROM overtime o
       JOIN login u ON u.id = o.employee_id
       ORDER BY o.id DESC
@@ -45,52 +43,26 @@ export const getAllOvertime = async (req: Request, res: Response) => {
   }
 };
 
-export const getMyOvertime = async (req: Request, res: Response) => {
-  try {
-    const userId = (req as any).user.id;
-
-    const [rows]: any = await pool.query(
-      `
-      SELECT 
-        o.id,
-        o.employee_id,
-        u.name,
-        o.date,
-        o.time AS totalTime,
-          o.description,
-
-        o.approval_status AS approvalStatus
-      FROM overtime o
-      JOIN login u ON u.id = o.employee_id
-      WHERE o.employee_id = ?
-      ORDER BY o.id DESC
-    `,
-      [userId],
-    );
-
-    res.json(rows);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Failed to fetch overtime" });
-  }
-};
-
 export const createOvertime = async (
   req: Request,
   res: Response,
 ): Promise<void> => {
+  const connection = await pool.getConnection();
   try {
+    await connection.beginTransaction();
+
     const user = (req as any).user;
-    const { date, time, description, employee_id } = req.body;
+    const { date, time, description, employee_id, overtime_amount } = req.body;
 
     const empId = user.role === "admin" ? employee_id : user.id;
 
-    const [existing]: any = await pool.query(
+    const [existing]: any = await connection.query(
       `SELECT id FROM overtime WHERE employee_id = ? AND date = ?`,
       [empId, date],
     );
 
     if (existing.length > 0) {
+      await connection.rollback();
       res
         .status(400)
         .json({ message: "Overtime already exists for this date." });
@@ -98,6 +70,7 @@ export const createOvertime = async (
     }
 
     if (!validateOvertime(time)) {
+      await connection.rollback();
       res.status(400).json({
         message:
           "Invalid overtime! Hours 0-24, Minutes/Seconds 0-59, cannot be 00:00:00",
@@ -105,130 +78,70 @@ export const createOvertime = async (
       return;
     }
 
-    // Get employee joining date
-    const [userRows]: any = await pool.query(
-      `SELECT date FROM login WHERE id = ?`,
-      [empId],
+    const overtimeVal = user.role === "admin" ? Number(overtime_amount) : 0;
+
+    await connection.query(
+      `INSERT INTO overtime (employee_id, date, time, overtime_amount, description) VALUES (?, ?, ?, ?, ?)`,
+      [empId, date, time, overtimeVal, description],
     );
 
-    if (!userRows.length) {
-      res.status(404).json({ message: "Employee not found" });
-      return;
+    // ===== Add debit to employee account =====
+    if (overtimeVal > 0) {
+      // Fetch previous balance
+      const [last]: any = await connection.query(
+        `SELECT balance FROM employee_accounts WHERE employee_id = ? ORDER BY id DESC LIMIT 1 FOR UPDATE`,
+        [empId],
+      );
+
+      const previousBalance = last.length ? Number(last[0].balance) : 0;
+      const currentBalance = previousBalance + overtimeVal; // debit
+
+      // Generate invoiceNo
+      const [seqRows]: any = await connection.query(
+        `SELECT employee_acc_no FROM invoice_sequence WHERE id = 1 FOR UPDATE`,
+      );
+
+      let nextNumber = 1;
+      if (seqRows.length) {
+        nextNumber = seqRows[0].employee_acc_no + 1;
+        await connection.query(
+          `UPDATE invoice_sequence SET employee_acc_no = ? WHERE id = 1`,
+          [nextNumber],
+        );
+      } else {
+        await connection.query(
+          `INSERT INTO invoice_sequence (id, employee_acc_no) VALUES (1, 0)`,
+        );
+      }
+
+      const formattedInvoice = `INV-${String(nextNumber).padStart(4, "0")}`;
+      const refNo = `REF-${Date.now()}`;
+
+      await connection.query(
+        `INSERT INTO employee_accounts (employee_id, refNo, invoiceNo, payment_date, debit, credit, balance, payment_method)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          empId,
+          refNo,
+          formattedInvoice,
+          date,
+          overtimeVal,
+          0,
+          currentBalance,
+          "Overtime",
+        ],
+      );
     }
 
-    const joiningDate = userRows[0].date;
-
-    if (!joiningDate) {
-      res.status(400).json({ message: "Employee joining date not set" });
-      return;
-    }
-
-    const overtimeDate = new Date(date);
-    const empJoiningDate = new Date(joiningDate);
-
-    if (overtimeDate < empJoiningDate) {
-      res.status(400).json({
-        message: "Overtime cannot be added before employee joining date",
-      });
-      return;
-    }
-
-    await pool.query(
-      `
-      INSERT INTO overtime (employee_id, date, time, description)
-      VALUES (?, ?, ?, ?)
-    `,
-      [empId, date, time, description],
-    );
-
-    res.status(201).json({ message: "Overtime added successfully" });
+    await connection.commit();
+    res
+      .status(201)
+      .json({ message: "Overtime added and account debited successfully" });
   } catch (error) {
-    console.error(error);
+    if (connection) await connection.rollback();
+    console.error("Create Overtime Error:", error);
     res.status(500).json({ message: "Failed to add overtime" });
-  }
-};
-
-export const updateOvertime = async (
-  req: Request,
-  res: Response,
-): Promise<void> => {
-  try {
-    const { id } = req.params;
-    const { employeeId, date, time, description, status } = req.body;
-
-    const [existing]: any = await pool.query(
-      `SELECT id FROM overtime WHERE employee_id = ? AND date = ? AND id != ?`,
-      [employeeId, date, id],
-    );
-
-    if (existing.length > 0) {
-      res
-        .status(400)
-        .json({ message: "Another record already exists for this date." });
-      return;
-    }
-
-    if (!validateOvertime(time)) {
-      res.status(400).json({
-        message:
-          "Invalid overtime! Hours 0-24, Minutes/Seconds 0-59, cannot be 00:00:00",
-      });
-      return;
-    }
-
-    // Get employee joining date
-    const [userRows]: any = await pool.query(
-      `SELECT date FROM login WHERE id = ?`,
-      [employeeId],
-    );
-
-    if (!userRows.length) {
-      res.status(404).json({ message: "Employee not found" });
-      return;
-    }
-
-    const joiningDate = userRows[0].date;
-
-    if (!joiningDate) {
-      res.status(400).json({ message: "Employee joining date not set" });
-      return;
-    }
-
-    const overtimeDate = new Date(date);
-    const empJoiningDate = new Date(joiningDate);
-
-    if (overtimeDate < empJoiningDate) {
-      res.status(400).json({
-        message: "Overtime cannot be updated to a date before joining date",
-      });
-      return;
-    }
-
-    await pool.query(
-      `
-      UPDATE overtime
-      SET employee_id = ?, date = ?, time = ?, description = ?, approval_status = ?
-      WHERE id = ?
-    `,
-      [employeeId, date, time, description, status, id],
-    );
-
-    res.json({ message: "Overtime updated successfully" });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Failed to update overtime" });
-  }
-};
-
-export const deleteOvertime = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-
-    await pool.query(`DELETE FROM overtime WHERE id = ?`, [id]);
-
-    res.json({ message: "Overtime deleted successfully" });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Failed to delete overtime" });
+  } finally {
+    connection.release();
   }
 };

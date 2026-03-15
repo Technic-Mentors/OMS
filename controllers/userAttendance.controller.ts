@@ -63,7 +63,7 @@ export const getAllAttendances = async (req: Request, res: Response) => {
        FROM attendance a
        JOIN login u ON a.userId = u.id
        WHERE a.status = 'Y'
-       ORDER BY a.date DESC`,
+       ORDER BY a.date ASC, a.id ASC`,
     );
 
     res.json(rows);
@@ -90,7 +90,7 @@ export const getMyAttendances = async (
               workingHours, DAYNAME(date) AS day, status
        FROM attendance
        WHERE userId = ? AND status = 'Y'
-       ORDER BY date DESC`,
+       ORDER BY date ASC, a.id ASC`,
       [userId],
     );
 

@@ -143,3 +143,22 @@ export const getCustomerAccountsByCustomerId = async (
     res.status(500).json({ message: "Failed to fetch accounts" });
   }
 };
+
+
+export const getAllCustomerAccounts = async (req: Request, res: Response) => {
+  try {
+    const [rows]: any = await pool.query(
+      `SELECT id, debit, credit, paymentDate FROM customer_accounts`
+    );
+
+    const formatted = rows.map((row: any) => ({
+      ...row,
+      debit: Number(row.debit),
+      credit: Number(row.credit),
+    }));
+
+    res.json(formatted);
+  } catch (err) {
+    res.status(500).json({ message: "Failed to fetch all customer accounts" });
+  }
+};

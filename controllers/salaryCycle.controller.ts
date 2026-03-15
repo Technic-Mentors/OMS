@@ -39,36 +39,59 @@ export const runSalaryCycle = async (
 
     const [salaries]: any = await pool.query(
       `SELECT 
-        c.id,
-        c.employee_id,
-        c.total_salary,
-        c.config_date,
-        c.effective_from,
-        DAY(LAST_DAY(c.config_date)) AS total_days,
-        (DATEDIFF(c.config_date, c.effective_from) + 1) AS effective_days,
-        ROUND(
-          (c.total_salary / DAY(LAST_DAY(c.config_date))) *
-          (DATEDIFF(c.config_date, c.effective_from) + 1)
-        ) AS prorated_salary,
-        COALESCE(SUM(CAST(l.deduction AS DECIMAL(10,2))), 0) AS total_loan_deduction,
-        ROUND(
-          (
-            (c.total_salary / DAY(LAST_DAY(c.config_date))) *
-            (DATEDIFF(c.config_date, c.effective_from) + 1)
-          ) - COALESCE(SUM(CAST(l.deduction AS DECIMAL(10,2))), 0)
-        ) AS net_salary
-      FROM configempsalaries c
-      LEFT JOIN loan l ON l.employee_id = c.employee_id AND l.remainingAmount > 0
-      WHERE c.status='ACTIVE' 
-        AND MONTH(c.config_date)=MONTH(?) 
-        AND YEAR(c.config_date)=YEAR(?)
-      GROUP BY 
-        c.id,
-        c.employee_id,
-        c.total_salary,
-        c.config_date,
-        c.effective_from`,
-      [salaryDate, salaryDate],
+  c.id,
+  c.employee_id,
+  c.total_salary,
+  c.attendance_base,
+  c.config_date,
+  c.effective_from,
+
+  DAY(LAST_DAY(c.config_date)) AS total_days,
+
+  COUNT(
+      CASE 
+          WHEN a.attendanceStatus IN ('present','Late')
+          THEN 1
+      END
+  ) AS present_days,
+
+  ROUND(c.total_salary / DAY(LAST_DAY(c.config_date))) AS per_day_salary,
+
+  ROUND(
+      (c.total_salary / DAY(LAST_DAY(c.config_date))) *
+      COUNT(
+          CASE 
+              WHEN a.attendanceStatus IN ('present','Late')
+              THEN 1
+          END
+      )
+  ) AS attendance_salary,
+
+  COALESCE(SUM(CAST(l.deduction AS DECIMAL(10,2))),0) AS total_loan_deduction
+
+FROM configempsalaries c
+
+LEFT JOIN attendance a
+  ON a.userId = c.employee_id
+  AND MONTH(a.date) = MONTH(c.config_date)
+  AND YEAR(a.date) = YEAR(c.config_date)
+  AND a.status = 'Y'
+
+LEFT JOIN loan l
+  ON l.employee_id = c.employee_id
+  AND l.remainingAmount > 0
+
+WHERE c.status='ACTIVE'
+AND c.effective_from <= LAST_DAY(?)
+
+GROUP BY
+  c.id,
+  c.employee_id,
+  c.total_salary,
+  c.config_date,
+  c.effective_from,
+  c.attendance_base`,
+      [salaryDate],
     );
 
     if (salaries.length === 0) {
@@ -78,7 +101,16 @@ export const runSalaryCycle = async (
 
     for (const sal of salaries) {
       // Use the net_salary from the query which matches what's shown in ConfigEmpSalary
-      const debit = Number(sal.net_salary);
+
+      let salaryAmount = 0;
+
+      if (sal.attendance_base === "Y") {
+        salaryAmount = sal.attendance_salary;
+      } else {
+        salaryAmount = sal.total_salary;
+      }
+
+      const debit = Number(salaryAmount - sal.total_loan_deduction);
 
       if (isNaN(debit) || debit < 0) continue;
 
@@ -151,7 +183,7 @@ export const runSalaryCycle = async (
       } finally {
         connection.release();
       }
-    } 
+    }
 
     res.json({ message: "Salary cycle run successfully" });
   } catch (error) {
