@@ -85,12 +85,12 @@ export const getMyAttendances = async (
     }
 
     const [rows] = await pool.query<RowDataPacket[]>(
-      `SELECT id, userId, date, clockIn, clockOut,
-              attendanceStatus, leaveStatus, leaveReason,
-              workingHours, DAYNAME(date) AS day, status
-       FROM attendance
-       WHERE userId = ? AND status = 'Y'
-       ORDER BY date ASC, a.id ASC`,
+      `SELECT a.id, a.userId, a.date, a.clockIn, a.clockOut,
+          a.attendanceStatus, a.leaveStatus, a.leaveReason,
+          a.workingHours, DAYNAME(a.date) AS day, a.status
+   FROM attendance a
+   WHERE a.userId = ? AND a.status = 'Y'
+   ORDER BY a.date ASC, a.id ASC`,
       [userId],
     );
 

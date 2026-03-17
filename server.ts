@@ -153,12 +153,12 @@ app.get("/cloudinary-test", async (req, res) => {
   }
 });
 
-// app.listen(PORT, () => {
-//   console.log(`Backend is running on ${PORT}`);
-// });
-
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(`Server running on http://192.168.1.4:${PORT}`);
+app.listen(PORT, () => {
+  console.log(`Backend is running on ${PORT}`);
 });
+
+// app.listen(PORT, "0.0.0.0", () => {
+//   console.log(`Server running on http://192.168.1.4:${PORT}`);
+// });
 
 export default app;
