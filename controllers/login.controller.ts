@@ -42,14 +42,14 @@ export const login = async (req: Request, res: Response): Promise<void> => {
         message: "Login successful",
         token,
         userId: "52",
-        name: "OMS",
+        name: "Nadeem Munir",
         email: HARD_ADMIN_EMAIL,
         role: "admin",
         permissions: ["ALL"], // Hard admin ko full access
         contact: "123456789101",
         cnic: "12345-6789101-1",
         date: new Date().toISOString().split("T")[0],
-        image: "",
+        image: "https://technicmentors.com/assets/img/Teams/nadeem-munir-team-technicmentors.jpg",
         source: "hardcoded",
       });
       return;

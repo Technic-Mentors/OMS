@@ -211,7 +211,7 @@ export const updateCompletionStatus = async (
     const { id } = req.params;
     const { completionStatus } = req.body;
 
-    const allowedStatuses = ["New", "Working", "Complete"];
+    const allowedStatuses = ["New", "Working", "Completed"];
     if (!allowedStatuses.includes(completionStatus)) {
       res.status(400).json({ message: "Invalid completion status" });
       return;

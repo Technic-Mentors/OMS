@@ -100,7 +100,7 @@ export const updateUser = async (
 ): Promise<void> => {
   try {
     const userId = req.params.id;
-    let { name, email, contact, cnic, address, role, password } = req.body;
+    let { name, email, contact, cnic, address, role} = req.body;
 
     if (!userId) {
       res.status(400).json({ message: "User ID is required" });
@@ -153,16 +153,7 @@ export const updateUser = async (
       updates.image = result.secure_url;
     }
 
-    // Handle Password Update
-    if (password) {
-      if (password.length < 8 || password.length > 20) {
-        res
-          .status(400)
-          .json({ message: "Password must be between 8 and 20 characters" });
-        return;
-      }
-      updates.password = await bcrypt.hash(password, 10);
-    }
+    
 
     // Clean undefined fields so they aren't part of the SQL query
     Object.keys(updates).forEach(
