@@ -121,7 +121,7 @@ app.use("/api/admin", quotationRoutes);
 app.use("/api/admin", calendarRoutes);
 app.use("/api/admin", configuresalaryRoutes);
 app.use("/api", employeeaccountRoutes);
-app.use("/api/admin", overtimeRoutes);
+app.use("/api", overtimeRoutes);
 app.use("/api", advancesalaryRoutes);
 app.use("/api", loanRoutes);
 app.use("/api/admin", customeraccountRoutes);

@@ -4,7 +4,7 @@ import pool from "../database/db";
 export const getSalaries = async (req: Request, res: Response) => {
   try {
     const [rows] = await pool.query(`
-SELECT 
+SELECT
   c.id,
   c.employee_id,
   e.employee_name,
@@ -16,85 +16,87 @@ SELECT
   c.attendance_base,
   c.salary_month,
   c.description,
+  c.config_date,
+  c.effective_from,
 
-  COALESCE(SUM(CAST(l.deduction AS DECIMAL(10,2))), 0) AS total_loan_deduction,
+  -- Loan Deduction (SAFE)
+  COALESCE(l.total_loan_deduction, 0) AS total_loan_deduction,
 
-  -- Total days in month
-  DAY(LAST_DAY(c.effective_from)) AS total_days,
+  -- Total Days in Month
+  DAY(LAST_DAY(COALESCE(c.config_date, CURRENT_DATE))) AS total_days,
 
-  COUNT(
-      CASE 
-          WHEN a.attendanceStatus IN ('present','Late') 
-          THEN 1 
-      END
-  ) AS present_days,
+  -- Present Days
+  COALESCE(a.present_days, 0) AS present_days,
 
-  -- PER DAY SALARY
-  ROUND(c.total_salary / DAY(LAST_DAY(c.config_date))) AS per_day_salary,
-
-  -- ATTENDANCE BASE SALARY
+  -- Per Day Salary
   ROUND(
-      (c.total_salary / DAY(LAST_DAY(c.config_date))) *
-      COUNT(
-          CASE 
-              WHEN a.attendanceStatus IN ('present','Late' , 'Leave') 
-              THEN 1 
-          END
-      )
+    c.total_salary / DAY(LAST_DAY(COALESCE(c.config_date, CURRENT_DATE)))
+  ) AS per_day_salary,
+
+  -- Attendance Salary
+  ROUND(
+    (c.total_salary / DAY(LAST_DAY(COALESCE(c.config_date, CURRENT_DATE))))
+    * COALESCE(a.present_days, 0)
   ) AS attendance_salary,
 
-
-  -- Effective days
+  -- Effective Days
   (DATEDIFF(c.config_date, c.effective_from) + 1) AS effective_days,
 
-  -- Prorated salary
+  -- Net Salary
   ROUND(
-c.total_salary - COALESCE(SUM(CAST(l.deduction AS DECIMAL(10,2))),0)
-) AS net_salary,
-
-  c.config_date,
-  c.effective_from
+    c.total_salary - COALESCE(l.total_loan_deduction, 0)
+  ) AS net_salary
 
 FROM configempsalaries c
-LEFT JOIN employee_lifeline e 
+
+LEFT JOIN employee_lifeline e
   ON c.employee_id = e.employee_id
 
-LEFT JOIN attendance a
+-- ✅ Attendance Aggregated Separately (FIX DUPLICATION)
+LEFT JOIN (
+  SELECT
+    userId,
+    MONTH(date) AS month,
+    YEAR(date) AS year,
+    COUNT(
+      CASE
+        WHEN attendanceStatus IN ('present','Late','Leave')
+        THEN 1
+      END
+    ) AS present_days
+  FROM attendance
+  WHERE status = 'Y'
+  GROUP BY userId, MONTH(date), YEAR(date)
+) a
   ON a.userId = c.employee_id
-  AND MONTH(a.date) = MONTH(c.effective_from)
-  AND YEAR(a.date) = YEAR(c.effective_from)
-  AND a.status = 'Y'
+  AND a.month = MONTH(c.effective_from)
+  AND a.year = YEAR(c.effective_from)
 
-LEFT JOIN loan l
+-- ✅ Loan Aggregated Separately (SAFE CAST)
+LEFT JOIN (
+  SELECT
+    employee_id,
+    SUM(CAST(IFNULL(deduction, 0) AS DECIMAL(10,2))) AS total_loan_deduction
+  FROM loan
+  GROUP BY employee_id
+) l
   ON l.employee_id = c.employee_id
 
 WHERE c.status = 'ACTIVE'
-
-GROUP BY 
-  c.id,
-  c.employee_id,
-  e.employee_name,
-  c.salary_amount,
-  c.emp_of_mon_allowance,
-  c.transport_allowance,
-  c.medical_allowance,
-  c.total_salary,
-  c.config_date,
-  c.effective_from,
-  c.attendance_base,
-  c.salary_month,
-  c.description
 
 ORDER BY c.config_date DESC
 `);
 
     res.json({
       salaries: rows,
-      total: (rows as any).length,
+      total: (rows as any[]).length,
     });
   } catch (error: any) {
-    console.error("SQL ERROR:", error.sqlMessage || error.message || error);
-    res.status(500).json({ message: "Error fetching salaries" });
+    console.error("FULL SQL ERROR:", error);
+    res.status(500).json({
+      message: "Error fetching salaries",
+      error: error.sqlMessage || error.message,
+    });
   }
 };
 
@@ -136,8 +138,8 @@ export const addSalary = async (req: Request, res: Response): Promise<void> => {
     } = req.body;
 
     const [existing]: any = await pool.query(
-      `SELECT id FROM configempsalaries 
-   WHERE employee_id = ? 
+      `SELECT id FROM configempsalaries
+   WHERE employee_id = ?
    AND salary_month = ?
    AND status = 'ACTIVE'`,
       [employee_id, salary_month],
@@ -195,7 +197,7 @@ export const addSalary = async (req: Request, res: Response): Promise<void> => {
 
     const [result] = await pool.query(
       `INSERT INTO configempsalaries
-       (employee_id, salary_amount, emp_of_mon_allowance, transport_allowance, medical_allowance, total_salary, 
+       (employee_id, salary_amount, emp_of_mon_allowance, transport_allowance, medical_allowance, total_salary,
        config_date , salary_month , effective_from, attendance_base , status , description)
        VALUES (?, ?, ?, ?, ?, ?, ? , ? , ? , ? , "ACTIVE" , ?)`,
       [
@@ -243,8 +245,8 @@ export const updateSalary = async (
     } = req.body;
 
     const [existing]: any = await pool.query(
-      `SELECT id FROM configempsalaries 
-   WHERE employee_id = ? 
+      `SELECT id FROM configempsalaries
+   WHERE employee_id = ?
    AND salary_month = ?
    AND status = 'ACTIVE'
    AND id != ?`,
@@ -310,7 +312,7 @@ export const updateSalary = async (
 
     await pool.query(
       `UPDATE configempsalaries
-       SET salary_amount=?, emp_of_mon_allowance=?, transport_allowance=?, medical_allowance=?, 
+       SET salary_amount=?, emp_of_mon_allowance=?, transport_allowance=?, medical_allowance=?,
        total_salary=?, config_date=? , effective_from=? , salary_month=?, attendance_base=?, description=?
        WHERE id=?`,
       [
