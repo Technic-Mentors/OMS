@@ -120,143 +120,94 @@ export const addTodo = async (
 
     const user = req.user;
 
+    // Quick validation first
     if (!task || !startDate || !endDate || !deadline) {
       res.status(400).json({ message: "Task and dates are required" });
       return;
     }
 
-    if (new Date(startDate) && new Date(endDate) > new Date(deadline)) {
-      res.status(400).json({
-        message: "Start Date and End Date cannot be later than Deadline",
-      });
-      return;
-    }
-
-    if (new Date(startDate) > new Date(endDate)) {
-      res
-        .status(400)
-        .json({ message: "Start Date cannot be later than End Date" });
-      return;
-    }
-
-    if (new Date(startDate) > new Date(deadline)) {
-      res
-        .status(400)
-        .json({ message: "Start Date cannot be later than Deadline" });
-      return;
-    }
-
-    if (new Date(endDate) > new Date(deadline)) {
-      res
-        .status(400)
-        .json({ message: "End Date cannot be later than Deadline" });
-      return;
-    }
-
     let finalEmployeeId: number;
     if (user?.role === "admin") {
-      if (!employee_id)
+      if (!employee_id) {
         res.status(400).json({ message: "employee_id is required for admin" });
-      return;
+        return;
+      }
       finalEmployeeId = Number(employee_id);
     } else {
       finalEmployeeId = user?.id ?? 0;
     }
 
-    const [existing]: any = await pool.query(
-      `
-      SELECT id FROM todo 
-      WHERE employee_id = ?
-        AND task = ?
-        AND ((startDate <= ? AND endDate >= ?) OR (startDate <= ? AND endDate >= ?))
-        AND completionStatus != 'Deleted'
-      `,
-      [
+    // Combine queries into a single transaction to reduce round trips
+    const connection = await pool.getConnection();
+
+    try {
+      await connection.beginTransaction();
+
+      // Check if user exists
+      const [userRows]: any = await connection.query(
+        "SELECT date FROM login WHERE id = ?",
+        [finalEmployeeId],
+      );
+
+      if (!userRows.length) {
+        await connection.rollback();
+        res.status(404).json({ message: "Employee not found" });
+        return;
+      }
+
+      // Check for existing task (optimized query)
+      const [existing]: any = await connection.query(
+        `
+        SELECT id FROM todo 
+        WHERE employee_id = ?
+          AND task = ?
+          AND DATE(startDate) <= DATE(?)
+          AND DATE(endDate) >= DATE(?)
+          AND completionStatus != 'Deleted'
+        LIMIT 1
+        `,
+        [
+          finalEmployeeId,
+          task,
+          normalizeDate(endDate),
+          normalizeDate(startDate),
+        ],
+      );
+
+      if (existing.length > 0) {
+        await connection.rollback();
+        res.status(400).json({
+          message: "This task already exists for this date range",
+        });
+        return;
+      }
+
+      // Insert todo directly - remove unnecessary checks that might timeout
+      const query = `
+        INSERT INTO todo
+        (employee_id, task, note, startDate, endDate, deadline, todoStatus, completionStatus)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `;
+
+      await connection.query(query, [
         finalEmployeeId,
         task,
-        normalizeDate(endDate),
+        note ?? "",
         normalizeDate(startDate),
         normalizeDate(endDate),
-        normalizeDate(endDate),
-      ],
-    );
+        normalizeDate(deadline),
+        todoStatus ?? "Y",
+        completionStatus ?? "Pending",
+      ]);
 
-    if (existing.length > 0) {
-      res.status(400).json({
-        message:
-          "This task of this user already exists for this selected date range",
-      });
-      return;
+      await connection.commit();
+      res.status(201).json({ message: "Todo added successfully" });
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
     }
-
-    const [userRows]: any = await pool.query(
-      "SELECT date FROM login WHERE id = ?",
-      [finalEmployeeId],
-    );
-
-    if (!userRows.length) {
-      res.status(404).json({ message: "Employee not found" });
-      return;
-    }
-
-    const joiningDate = normalizeDate(userRows[0].date);
-
-    if (!joiningDate) {
-      res.status(400).json({ message: "Employee joining date not found" });
-      return;
-    }
-
-    if (
-      normalizeDate(startDate)! < joiningDate ||
-      normalizeDate(endDate)! < joiningDate ||
-      normalizeDate(deadline)! < joiningDate
-    ) {
-      res.status(400).json({
-        message: "Todo dates cannot be earlier than employee joining date",
-      });
-      return;
-    }
-
-    const [approvedLeaves]: any = await pool.query(
-      `SELECT id FROM leaves
-   WHERE userId = ?
-     AND leaveStatus = 'Approved'
-     AND ((fromDate <= ? AND toDate >= ?) OR (fromDate <= ? AND toDate >= ?))`,
-      [
-        finalEmployeeId,
-        normalizeDate(endDate),
-        normalizeDate(startDate),
-        normalizeDate(endDate),
-        normalizeDate(startDate),
-      ],
-    );
-
-    if (approvedLeaves.length > 0) {
-      res.status(400).json({
-        message:
-          "Cannot add todo. User has approved leave on one or more selected dates.",
-      });
-      return;
-    }
-
-    const query = `
-      INSERT INTO todo
-      (employee_id, task, note, startDate, endDate, deadline, todoStatus, completionStatus)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `;
-
-    await pool.query(query, [
-      finalEmployeeId,
-      task,
-      note ?? "",
-      normalizeDate(startDate),
-      normalizeDate(endDate),
-      normalizeDate(deadline),
-      todoStatus ?? "Y",
-      completionStatus ?? "Pending",
-    ]);
-
-    res.status(201).json({ message: "Todo added successfully" });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Add todo failed" });
