@@ -49,10 +49,10 @@ export const addHoliday = async (
       return;
     }
 
-    if (holiday.length > 30) {
+    if (holiday.length > 50) {
       res
         .status(400)
-        .json({ message: "Holiday name cannot exceed 30 characters" });
+        .json({ message: "Holiday name cannot exceed 50 characters" });
 
       return;
     }
@@ -122,10 +122,10 @@ export const updateHoliday = async (
       return;
     }
 
-    if (holiday.length > 30) {
+    if (holiday.length > 50) {
       res
         .status(400)
-        .json({ message: "Holiday name cannot exceed 30 characters" });
+        .json({ message: "Holiday name cannot exceed 50 characters" });
 
       return;
     }

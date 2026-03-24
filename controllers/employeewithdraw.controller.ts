@@ -79,7 +79,7 @@ export const getWithdrawnEmployees = async (
       FROM withdrawals w
       INNER JOIN login l ON l.id = w.employee_id
       WHERE w.withdrawStatus = 'Y'
-      ORDER BY w.id DESC
+      ORDER BY w.id ASC
       LIMIT ? OFFSET ?
       `,
       [limitNum, offset],

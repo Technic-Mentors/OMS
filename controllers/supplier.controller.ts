@@ -3,7 +3,7 @@ import pool from "../database/db";
 
 export const addSupplier = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     const { supplierName, supplierEmail, supplierContact, supplierAddress } =
@@ -12,10 +12,9 @@ export const addSupplier = async (
     if (!supplierName || !supplierEmail || !supplierContact || !supplierAddress)
       res.status(400).json({ message: "All fields are required" });
 
-    
     const [existing]: any = await pool.query(
       "SELECT * FROM suppliers WHERE supplierName=? OR supplierEmail=? OR supplierContact=?",
-      [supplierName, supplierEmail, supplierContact]
+      [supplierName, supplierEmail, supplierContact],
     );
 
     if (existing.length > 0)
@@ -39,10 +38,9 @@ export const addSupplier = async (
   }
 };
 
-
 export const updateSupplier = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     const {
@@ -65,13 +63,29 @@ export const updateSupplier = async (
       WHERE (supplierName=? OR supplierEmail=? OR supplierContact=?)
       AND supplierId != ?
       `,
-      [supplierName, supplierEmail, supplierContact, supplierId]
+      [supplierName, supplierEmail, supplierContact, supplierId],
     );
 
-    if (existing.length > 0)
-      res.status(409).json({
-        message: "Another supplier with these details already exists",
-      });
+    if (existing.length > 0) {
+      const duplicates: string[] = [];
+
+      if (
+        existing.some(
+          (u: any) =>
+            u.supplierEmail.toLowerCase() === supplierEmail.toLowerCase(),
+        )
+      )
+        duplicates.push("Email");
+
+      if (existing.some((u: any) => u.supplierContact === supplierContact))
+        duplicates.push("Phone");
+
+      res
+        .status(400)
+        .json({ message: `${duplicates.join(" and ")} already exists!` });
+
+      return;
+    }
 
     const query = `
       UPDATE suppliers
@@ -96,7 +110,7 @@ export const updateSupplier = async (
 
 export const getAllSuppliers = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     const page = Number(req.query.page) || 1;
@@ -126,7 +140,7 @@ export const getAllSuppliers = async (
         `%${search}%`,
         limit,
         offset,
-      ]
+      ],
     );
 
     const [totalResult]: any = await pool.query(
@@ -134,7 +148,7 @@ export const getAllSuppliers = async (
       SELECT COUNT(*) AS total FROM suppliers
       ${filterQuery}
       `,
-      [`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`]
+      [`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`],
     );
 
     res.status(200).json({
@@ -151,14 +165,14 @@ export const getAllSuppliers = async (
 
 export const getSupplier = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     const { supplierId } = req.params;
 
     const [supplier]: any = await pool.query(
       `SELECT * FROM suppliers WHERE supplierId=?`,
-      [supplierId]
+      [supplierId],
     );
 
     if (supplier.length === 0)
@@ -173,7 +187,7 @@ export const getSupplier = async (
 
 export const deleteSupplier = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     const { supplierId } = req.params;
