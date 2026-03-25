@@ -49,6 +49,8 @@ import systemUsersRoutes from "./routes/systemuser.routes";
 import accesscontrolRoutes from "./routes/accesscontrol.routes";
 import accountReportRoutes from "./routes/accountreport.routes";
 import businessVariableRoutes from "./routes/businessvariable.routes";
+import configOvertimeRoutes from "./routes/configOvertime.routes";
+
 
 import session from "express-session";
 const app: Application = express();
@@ -136,6 +138,8 @@ app.use("/api/admin", systemUsersRoutes);
 app.use("/api/admin", accesscontrolRoutes);
 app.use("/api/admin", accountReportRoutes);
 app.use("/api/admin", businessVariableRoutes);
+app.use("/api/admin", configOvertimeRoutes);
+
 
 app.get("/", (req: Request, res: Response) => {
   res.send("Backend is up and running 🚀");
@@ -158,7 +162,7 @@ app.listen(PORT, () => {
 });
 
 // app.listen(PORT, "0.0.0.0", () => {
-//   console.log(`Server running on http://192.168.1.39:${PORT}`);
+//   console.log(`Server running on http://192.168.1.4:${PORT}`);
 // });
 
 export default app;

@@ -239,3 +239,31 @@ export const getEmployeeLifeLine = async (
     res.status(500).json({ message: "Failed to fetch employee designation" });
   }
 };
+
+
+export const getMyLifeLine = async (
+  req: AuthenticatedRequest,
+  res: Response,
+): Promise<void> => {
+  if (!req.user) {
+    res.status(401).json({ message: "Unauthorized" });
+    return;
+  }
+
+  const userId = req.user.id;
+
+  try {
+    const [rows] = await pool.query<EmployeeLifeLineRow[]>(
+      `SELECT id, employee_id, position, date 
+       FROM employee_lifeline 
+       WHERE employee_id = ? 
+       ORDER BY date DESC`,
+      [userId],
+    );
+
+    res.json(rows);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Failed to fetch your lifeline data" });
+  }
+};

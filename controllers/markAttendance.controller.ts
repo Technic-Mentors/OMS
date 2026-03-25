@@ -184,7 +184,10 @@ export const markAttendance = async (
     } else if (durationMinutes <= 120) {
       finalStatus = "Short Leave";
     } else if (currentTime < halfLeave) {
-      if (record.attendanceStatus !== "Late") {
+      if (
+        record.attendanceStatus !== "Late" &&
+        record.attendanceStatus !== "Short Leave"
+      ) {
         finalStatus = "Present";
       }
     }

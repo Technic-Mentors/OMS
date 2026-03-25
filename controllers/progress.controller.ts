@@ -23,7 +23,7 @@ LEFT JOIN employee_lifeline e ON pr.employee_id = e.employee_id
 LEFT JOIN login u ON pr.employee_id = u.id
 LEFT JOIN projects p ON pr.projectId = p.id
 WHERE pr.progressStatus = 'Y'
-ORDER BY pr.id DESC
+ORDER BY pr.id ASC
 `;
 
     const [rows] = await pool.query<RowDataPacket[]>(query);
@@ -58,7 +58,7 @@ export const getMyProgress = async (
       FROM progress p
       JOIN login u ON u.id = p.employee_id
       JOIN projects pr ON pr.id = p.projectId
-      WHERE p.employee_id = ?
+      WHERE p.employee_id = ? AND p.progressStatus = 'Y'
       ORDER BY p.id ASC
     `;
 

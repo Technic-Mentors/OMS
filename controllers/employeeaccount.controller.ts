@@ -91,16 +91,9 @@ export const addEmployeeAccount = async (
   }
 };
 
-export const getEmployeeAccount = async (
-  req: Request,
-  res: Response,
-): Promise<void> => {
+export const getEmployeeAccount = async (req: Request, res: Response) => {
   try {
     const { employee_id } = req.params;
-    if (!employee_id) {
-      res.status(400).json({ message: "Employee ID is required" });
-      return;
-    }
 
     const [rows]: any = await pool.query(
       `SELECT id, refNo, invoiceNo, debit, credit, payment_method, payment_date, balance
@@ -110,9 +103,25 @@ export const getEmployeeAccount = async (
       [employee_id],
     );
 
-    res.json({ accounts: rows });
+    let previousBalance = 0;
+
+    const formatted = rows.map((row: any) => {
+      const netBalance = previousBalance + Number(row.debit) - Number(row.credit);
+
+      const result = {
+        ...row,
+        previous_balance: previousBalance,
+        net_balance: netBalance,
+      };
+
+      previousBalance = netBalance;
+
+      return result;
+    });
+
+    res.json({ accounts: formatted });
   } catch (error: any) {
-    console.error("Get Employee Account Error:", error.message || error);
+    console.error("Error:", error);
     res.status(500).json({ message: "Server error" });
   }
 };

@@ -1,24 +1,7 @@
 import { Request, Response } from "express";
 import pool from "../database/db";
 
-const validateOvertime = (time: string) => {
-  const regex = /^(\d{1,2}):([0-5]?\d):([0-5]?\d)$/;
-  const match = time.match(regex);
 
-  if (!match) return false;
-
-  const hours = parseInt(match[1], 10);
-  const minutes = parseInt(match[2], 10);
-  const seconds = parseInt(match[3], 10);
-
-  if (hours < 0 || hours > 24) return false;
-  if (minutes < 0 || minutes > 59) return false;
-  if (seconds < 0 || seconds > 59) return false;
-
-  if (hours === 0 && minutes === 0 && seconds === 0) return false;
-
-  return true;
-};
 
 export const getOvertime = async (req: Request, res: Response) => {
   try {
@@ -69,14 +52,6 @@ export const createOvertime = async (
       return;
     }
 
-    if (!validateOvertime(time)) {
-      await connection.rollback();
-      res.status(400).json({
-        message:
-          "Invalid overtime! Hours 0-24, Minutes/Seconds 0-59, cannot be 00:00:00",
-      });
-      return;
-    }
 
     const overtimeVal = user.role === "admin" ? Number(overtime_amount) : 0;
 
