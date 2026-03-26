@@ -5,6 +5,7 @@ interface CustomerBody {
   customerName: string;
   customerAddress: string;
   customerContact: string;
+  email: string;
   companyName: string;
   companyAddress: string;
 }
@@ -33,13 +34,14 @@ export const addCustomer = async (
       customerName,
       customerAddress,
       customerContact,
+      email,
       companyName,
       companyAddress,
     } = req.body;
 
-    if (!customerName || !customerAddress || !customerContact) {
+    if (!customerName || !customerAddress || !email || !customerContact) {
       res.status(400).json({
-        message: "Name, address, and contact are required",
+        message: "Name, email ,  address and contact are required",
       });
       return;
     }
@@ -61,12 +63,13 @@ export const addCustomer = async (
 
     await pool.query(
       `INSERT INTO customers 
-        (customerName, customerAddress, customerContact, companyName, companyAddress) 
-       VALUES (?, ?, ?, ?, ?)`,
+        (customerName, customerAddress, customerContact, email, companyName, companyAddress) 
+       VALUES (?, ?, ?, ?, ?, ?)`,
       [
         customerName,
         customerAddress,
         customerContact,
+        email,
         companyName,
         companyAddress,
       ],
@@ -90,13 +93,14 @@ export const updateCustomer = async (
       customerName,
       customerAddress,
       customerContact,
+      email,
       companyName,
       companyAddress,
     }: CustomerBody = req.body;
 
-    if (!customerName || !customerAddress || !customerContact) {
+    if (!customerName || !customerAddress || !email || !customerContact) {
       res.status(400).json({
-        message: "Name, address, and contact are required",
+        message: "Name, email, address, and contact are required",
       });
       return;
     }
@@ -123,6 +127,7 @@ export const updateCustomer = async (
         customerName=?, 
         customerAddress=?, 
         customerContact=?, 
+        email=?,
         companyName=?, 
         companyAddress=? 
        WHERE id=?`,
@@ -130,6 +135,7 @@ export const updateCustomer = async (
         customerName,
         customerAddress,
         customerContact,
+        email,
         companyName,
         companyAddress,
         customerId,
@@ -175,6 +181,7 @@ export const getSingleCustomer = async (
 
     if (rows.length === 0) {
       res.status(404).json({ message: "Customer not found" });
+      return;
     }
 
     res.status(200).json(rows[0]);

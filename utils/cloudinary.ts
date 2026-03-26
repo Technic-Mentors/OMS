@@ -14,11 +14,7 @@ cloudinary.config({
   secure: true,
 });
 
-console.log("Cloudinary Config:", {
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY ? "Present" : "Missing",
-  api_secret: process.env.CLOUDINARY_API_SECRET ? "Present" : "Missing",
-});
+
 
 export const uploadToCloudinary = async (
   fileBuffer: Buffer,

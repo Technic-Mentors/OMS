@@ -50,34 +50,13 @@ import accesscontrolRoutes from "./routes/accesscontrol.routes";
 import accountReportRoutes from "./routes/accountreport.routes";
 import businessVariableRoutes from "./routes/businessvariable.routes";
 import configOvertimeRoutes from "./routes/configOvertime.routes";
-
+import emailRoutes from "./routes/email.routes";
 
 import session from "express-session";
 const app: Application = express();
 const PORT: number = 3001;
 
 dotenv.config();
-
-console.log("Environment variables loaded:");
-console.log("CLOUDINARY_CLOUD_NAME:", process.env.CLOUDINARY_CLOUD_NAME);
-console.log(
-  "CLOUDINARY_API_KEY:",
-  process.env.CLOUDINARY_API_KEY ? "Present" : "Missing",
-);
-console.log(
-  "CLOUDINARY_API_SECRET:",
-  process.env.CLOUDINARY_API_SECRET ? "Present" : "Missing",
-);
-
-if (
-  !process.env.CLOUDINARY_CLOUD_NAME ||
-  !process.env.CLOUDINARY_API_KEY ||
-  !process.env.CLOUDINARY_API_SECRET
-) {
-  console.error("❌ Cloudinary configuration missing!");
-} else {
-  console.log("✅ Cloudinary configuration loaded");
-}
 
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(cors());
@@ -139,7 +118,7 @@ app.use("/api/admin", accesscontrolRoutes);
 app.use("/api/admin", accountReportRoutes);
 app.use("/api/admin", businessVariableRoutes);
 app.use("/api/admin", configOvertimeRoutes);
-
+app.use("/api/admin", emailRoutes);
 
 app.get("/", (req: Request, res: Response) => {
   res.send("Backend is up and running 🚀");
