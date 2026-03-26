@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import resend from "../utils/resend";
-import puppeteer from "puppeteer";
+import puppeteer from "puppeteer-core";
+import chromium from "@sparticuz/chromium";
 
 type Column<T> = {
   label: string;
@@ -79,7 +80,11 @@ export const sendSalesReportEmail = async (
     </html>
     `;
 
-    const browser = await puppeteer.launch({ headless: true });
+    const browser = await puppeteer.launch({
+      args: chromium.args,
+      executablePath: await chromium.executablePath(),
+      headless: true,
+    });
     const page = await browser.newPage();
     await page.setContent(fullHtml, { waitUntil: "networkidle0" });
     const pdfUint8 = await page.pdf({ format: "A4", printBackground: true });
