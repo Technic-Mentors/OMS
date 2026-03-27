@@ -48,7 +48,7 @@ SELECT
   t.id,
   t.employee_id,
   u.name AS employeeName,
-  u.email AS employeeEmail,
+  u.email,
   t.task,
   t.note,
  DATE_FORMAT(t.startDate, '%Y-%m-%d') AS startDate,
