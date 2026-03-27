@@ -48,6 +48,7 @@ SELECT
   t.id,
   t.employee_id,
   u.name AS employeeName,
+  u.email AS employeeEmail,
   t.task,
   t.note,
  DATE_FORMAT(t.startDate, '%Y-%m-%d') AS startDate,
@@ -89,7 +90,7 @@ export const getUserTodos = async (
     todoStatus,
     completionStatus
   FROM todo
-  WHERE employee_id = ?
+  JOIN login u ON u.id = todo.employee_id
     AND todoStatus != 'N'
   ORDER BY id DESC
 `;
