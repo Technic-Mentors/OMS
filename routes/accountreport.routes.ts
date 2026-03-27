@@ -4,11 +4,6 @@ import { authenticateToken, isAdmin } from "../middleware/middleware";
 
 const router = Router();
 
-router.get(
-  "/getAccountReport",
-  authenticateToken,
-  isAdmin,
-  getAccountReport,
-);
+router.get("/getAccountReport", authenticateToken, isAdmin, getAccountReport);
 
 export default router;
