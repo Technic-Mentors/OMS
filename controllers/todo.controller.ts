@@ -78,27 +78,36 @@ export const getUserTodos = async (
   try {
     const { id } = req.params;
 
+    if (!id) {
+      res.status(400).json({ message: "User ID is required" });
+      return;
+    }
+
     const query = `
-  SELECT 
-    id,
-    employee_id,
-    task,
-    note,
-    DATE_FORMAT(startDate, '%Y-%m-%d') AS startDate,
-    DATE_FORMAT(endDate, '%Y-%m-%d') AS endDate,
-    DATE_FORMAT(deadline, '%Y-%m-%d') AS deadline,
-    todoStatus,
-    completionStatus
-  FROM todo
-  JOIN login u ON u.id = todo.employee_id
-    AND todoStatus != 'N'
-  ORDER BY id DESC
-`;
+      SELECT 
+        t.id,
+        t.employee_id,
+        u.name AS employeeName,
+        u.email,
+        t.task,
+        t.note,
+        DATE_FORMAT(t.startDate, '%Y-%m-%d') AS startDate,
+        DATE_FORMAT(t.endDate, '%Y-%m-%d') AS endDate,
+        DATE_FORMAT(t.deadline, '%Y-%m-%d') AS deadline,
+        t.todoStatus,
+        t.completionStatus
+      FROM todo t
+      INNER JOIN login u ON u.id = t.employee_id
+      WHERE t.employee_id = ?
+        AND t.todoStatus != 'N'
+      ORDER BY t.id DESC
+    `;
 
     const [rows] = await pool.query<RowDataPacket[]>(query, [id]);
+
     res.status(200).json(rows);
   } catch (error) {
-    console.error(error);
+    console.error("getUserTodos error:", error);
     res.status(500).json({ message: "Failed to fetch user todos" });
   }
 };

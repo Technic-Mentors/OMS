@@ -98,18 +98,30 @@ export const getMyAttendances = async (
 ): Promise<void> => {
   try {
     const userId = (req as any).user?.id;
+
     if (!userId) {
       res.status(401).json({ message: "Unauthorized" });
       return;
     }
 
     const [rows] = await pool.query<RowDataPacket[]>(
-      `SELECT a.id, a.userId, u.email, a.date, a.clockIn, a.clockOut,
-          a.attendanceStatus, a.leaveStatus, a.leaveReason,
-          a.workingHours, DAYNAME(a.date) AS day, a.status
-   FROM attendance a
-   WHERE a.userId = ? AND a.status = 'Y'
-   ORDER BY a.date ASC, a.id ASC`,
+      `SELECT 
+          a.id,
+          a.userId,
+          u.email,
+          a.date,
+          a.clockIn,
+          a.clockOut,
+          a.attendanceStatus,
+          a.leaveStatus,
+          a.leaveReason,
+          a.workingHours,
+          DAYNAME(a.date) AS day,
+          a.status
+       FROM attendance a
+       JOIN login u ON a.userId = u.id
+       WHERE a.userId = ? AND a.status = 'Y'
+       ORDER BY a.date ASC, a.id ASC`,
       [userId],
     );
 
