@@ -66,15 +66,11 @@ ORDER BY ea.payment_date ASC
 
     let runningBalance = 0;
 
-    for (const entry of report) {
-      runningBalance +=
-        (Number(entry.debit) || 0) - (Number(entry.credit) || 0);
-
-      await pool.query(
-        `INSERT INTO accounts_ledger 
-        (account_type, account_id, debit, credit, balance, invoiceNo, refNo, paymentMethod, paymentDate, createdAt, updatedAt) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
-        [
+    if (report.length > 0) {
+      const values = report.map((entry) => {
+        runningBalance +=
+          (Number(entry.debit) || 0) - (Number(entry.credit) || 0);
+        return [
           entry.account_type,
           entry.id,
           entry.debit || 0,
@@ -84,7 +80,16 @@ ORDER BY ea.payment_date ASC
           entry.refNo,
           entry.paymentMethod,
           entry.paymentDate,
-        ],
+          new Date(), // createdAt
+          new Date(), // updatedAt
+        ];
+      });
+
+      await pool.query(
+        `INSERT INTO accounts_ledger 
+        (account_type, account_id, debit, credit, balance, invoiceNo, refNo, paymentMethod, paymentDate, createdAt, updatedAt) 
+        VALUES ?`,
+        [values],
       );
     }
 
