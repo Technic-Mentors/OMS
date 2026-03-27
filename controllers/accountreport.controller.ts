@@ -67,7 +67,8 @@ ORDER BY ea.payment_date ASC
     let runningBalance = 0;
 
     for (const entry of report) {
-      runningBalance += (Number(entry.debit) || 0) - (Number(entry.credit) || 0);
+      runningBalance +=
+        (Number(entry.debit) || 0) - (Number(entry.credit) || 0);
 
       await pool.query(
         `INSERT INTO accounts_ledger 
@@ -75,28 +76,25 @@ ORDER BY ea.payment_date ASC
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
         [
           entry.account_type,
-          entry.id, 
+          entry.id,
           entry.debit || 0,
           entry.credit || 0,
           runningBalance,
           entry.invoiceNo,
           entry.refNo,
           entry.paymentMethod,
-          entry.paymentDate
-        ]
+          entry.paymentDate,
+        ],
       );
     }
 
-    res.json({ 
-      success: true, 
-      message: "Ledger table rebuilt successfully", 
-      report 
+    res.json({
+      success: true,
+      message: "Ledger table rebuilt successfully",
+      report,
     });
-
   } catch (error: any) {
     console.error("Account Report Error:", error);
     res.status(500).json({ message: "Failed to generate account report" });
   }
 };
-
-
