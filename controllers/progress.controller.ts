@@ -13,6 +13,7 @@ SELECT
   pr.id,
   pr.employee_id,
   COALESCE(e.employee_name, u.name) AS employeeName,
+  COALESCE(e.email, u.email, '') AS email,  -- ✅ force value
   pr.projectId,
   p.projectName,
   pr.date,
@@ -23,7 +24,7 @@ LEFT JOIN employee_lifeline e ON pr.employee_id = e.employee_id
 LEFT JOIN login u ON pr.employee_id = u.id
 LEFT JOIN projects p ON pr.projectId = p.id
 WHERE pr.progressStatus = 'Y'
-ORDER BY pr.id ASC
+ORDER BY pr.id ASC;
 `;
 
     const [rows] = await pool.query<RowDataPacket[]>(query);
@@ -51,6 +52,7 @@ export const getMyProgress = async (
         p.id,
         p.employee_id,
         u.name AS employeeName,
+        u.email AS email,
         p.projectId,
         pr.projectName,
         p.date,
