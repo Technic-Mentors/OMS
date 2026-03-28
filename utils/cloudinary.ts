@@ -14,8 +14,6 @@ cloudinary.config({
   secure: true,
 });
 
-
-
 export const uploadToCloudinary = async (
   fileBuffer: Buffer,
   folder: string = "oms_users",

@@ -44,7 +44,7 @@ export const addUser = async (req: Request, res: Response): Promise<void> => {
         return;
       }
 
-      if (file.size > 5 * 1024 * 1024) {
+      if (file.size > 4 * 1024 * 1024) {
         res.status(400).json({ message: "Image size must be less than 5MB" });
         return;
       }
