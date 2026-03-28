@@ -7,7 +7,7 @@ export const getSupplierAcc = async (req: Request, res: Response) => {
     const [rows] = await pool.query(
       `SELECT supplierId, supplierName, supplierContact, supplierAddress
        FROM suppliers
-       ORDER BY supplierId DESC`,
+       ORDER BY supplierId ASC`,
     );
 
     res.json(rows);
@@ -30,7 +30,8 @@ export const getSuppliers = async (req: Request, res: Response) => {
 };
 
 export const addSupplierAcc = async (req: Request, res: Response) => {
-  const { supplierId, paymentType, amount, paymentMethod, paymentDate } = req.body;
+  const { supplierId, paymentType, amount, paymentMethod, paymentDate } =
+    req.body;
 
   // Get a connection from the pool
   const connection = await pool.getConnection();
@@ -71,7 +72,15 @@ export const addSupplierAcc = async (req: Request, res: Response) => {
       `INSERT INTO supplier_accounts
       (supplierId , invoiceNo, refNo, debit, credit, paymentMethod, paymentDate)
       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [supplierId, formattedInvoice, refNo, debit, credit, paymentMethod, paymentDate],
+      [
+        supplierId,
+        formattedInvoice,
+        refNo,
+        debit,
+        credit,
+        paymentMethod,
+        paymentDate,
+      ],
     );
 
     await connection.commit();
@@ -79,7 +88,7 @@ export const addSupplierAcc = async (req: Request, res: Response) => {
     res.status(201).json({ message: "Supplier account added" });
   } catch (error) {
     await connection.rollback();
-    console.error("Database Error:", error); 
+    console.error("Database Error:", error);
     res.status(500).json({ message: "Failed to add supplier account" });
   } finally {
     connection.release();
@@ -140,7 +149,7 @@ export const getAllSupplierAccounts = async (req: Request, res: Response) => {
     const [rows]: any = await pool.query(
       `SELECT id, supplierId, invoiceNo, refNo, debit, credit, paymentMethod, paymentDate
        FROM supplier_accounts
-       ORDER BY paymentDate ASC`
+       ORDER BY paymentDate ASC`,
     );
     res.json(rows);
   } catch (error) {

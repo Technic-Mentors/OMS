@@ -8,7 +8,7 @@ export const getCustomerAccountsList = async (req: Request, res: Response) => {
       `SELECT id, customerName, customerContact, customerAddress
        FROM customers
        WHERE customerStatus = 'Y'
-       ORDER BY id DESC`,
+       ORDER BY id ASC`,
     );
     res.json(rows);
   } catch (err) {

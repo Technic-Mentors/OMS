@@ -10,6 +10,7 @@ export const getBusinessVariables = async (req: Request, res: Response) => {
             name,
             email,
             contact,
+            address,
             logo
         FROM business_variables
         ORDER BY id DESC
@@ -27,9 +28,9 @@ export const addBusinessVariable = async (
   res: Response,
 ): Promise<void> => {
   try {
-    const { name, email, contact } = req.body;
+    const { name, email, contact, address } = req.body;
 
-    if (!name || !email || !contact) {
+    if (!name || !email || !contact || !address) {
       res.status(400).json({
         message: "Name, email and contact are required",
       });
@@ -49,10 +50,10 @@ export const addBusinessVariable = async (
     const [result]: any = await pool.query(
       `
         INSERT INTO business_variables
-        (name,email,contact,logo)
-        VALUES (?,?,?,?)
+        (name,email,contact, address,logo)
+        VALUES (?,?,? ,?,?)
         `,
-      [name, email, contact, logoUrl],
+      [name, email, contact, address, logoUrl],
     );
 
     res.status(201).json({
@@ -71,9 +72,9 @@ export const editBusinessVariable = async (
 ): Promise<void> => {
   try {
     const { id } = req.params;
-    const { name, email, contact } = req.body;
+    const { name, email, contact, address } = req.body;
 
-    if (!name || !email || !contact) {
+    if (!name || !email || !contact || !address) {
       res.status(400).json({
         message: "Required fields missing",
       });
@@ -94,19 +95,19 @@ export const editBusinessVariable = async (
       await pool.query(
         `
         UPDATE business_variables
-        SET name=?, email=?, contact=?, logo=?
+        SET name=?, email=?, contact=?, address=?, logo=?
         WHERE id=?
         `,
-        [name, email, contact, logoUrl, id],
+        [name, email, contact, address, logoUrl, id],
       );
     } else {
       await pool.query(
         `
         UPDATE business_variables
-        SET name=?, email=?, contact=?
+        SET name=?, email=?, contact=?, address=?
         WHERE id=?
         `,
-        [name, email, contact, id],
+        [name, email, contact, address, id],
       );
     }
 
