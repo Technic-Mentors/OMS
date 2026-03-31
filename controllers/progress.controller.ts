@@ -16,7 +16,7 @@ SELECT
   COALESCE(e.email, u.email, '') AS email,  -- ✅ force value
   pr.projectId,
   p.projectName,
-  pr.date,
+  DATE_FORMAT(pr.date, '%Y-%m-%d') AS date,
   pr.note,
   pr.progressStatus
 FROM progress pr
