@@ -2,6 +2,8 @@ import { Request, Response } from "express";
 import pool from "../database/db";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
+const CLOUDINARY_BASE_URL =
+  "https://res.cloudinary.com/dnzo0rrk5/image/upload/v1773908483/oms_users/user_1773908481231_234.jpg";
 
 const saltRounds = 10;
 const SECRET_KEY = "your_secret_key";
@@ -18,42 +20,6 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     }
 
     const lowerEmail = email.toLowerCase().trim();
-
-    const HARD_ADMIN_EMAIL = "oms@technicmentors.com";
-    const HARD_ADMIN_PASSWORD = "12345678";
-
-    // HARD ADMIN LOGIN
-    if (lowerEmail === HARD_ADMIN_EMAIL) {
-      if (password !== HARD_ADMIN_PASSWORD) {
-        res
-          .status(400)
-          .json({ status: 400, message: "Invalid email or password" });
-        return;
-      }
-
-      const token = jwt.sign(
-        { email: HARD_ADMIN_EMAIL, role: "admin", id: 0 },
-        SECRET_KEY,
-        { expiresIn: "1d" },
-      );
-
-      res.json({
-        status: 200,
-        message: "Login successful",
-        token,
-        userId: "52",
-        name: "Nadeem Munir",
-        email: HARD_ADMIN_EMAIL,
-        role: "admin",
-        permissions: ["ALL"], // Hard admin ko full access
-        contact: "123456789101",
-        cnic: "12345-6789101-1",
-        date: new Date().toISOString().split("T")[0],
-        image: "https://technicmentors.com/assets/img/Teams/nadeem-munir-team-technicmentors.jpg",
-        source: "hardcoded",
-      });
-      return;
-    }
 
     // CHECK LOGIN TABLE
     let [users]: any = await pool.query("SELECT * FROM login WHERE email = ?", [
@@ -80,18 +46,6 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     const user = users[0];
 
     // ACCOUNT STATUS CHECK
-    const isActive =
-      tableSource === "login"
-        ? user.loginStatus === "Y"
-        : user.status === "Active";
-
-    if (!isActive) {
-      res.status(403).json({
-        status: 403,
-        message: "Your account is inactive. Please contact the administrator.",
-      });
-      return;
-    }
 
     // PASSWORD CHECK
     let storedPassword = user.password;
@@ -152,7 +106,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       contact: tableSource === "login" ? user.contact : user.phone,
       cnic: user.cnic,
       date: user.date || user.created_at,
-      image: user.image || "",
+      image: user.image ? user.image : `${CLOUDINARY_BASE_URL}`,
       source: tableSource,
     });
   } catch (error) {
@@ -176,9 +130,27 @@ export const changePassword = async (
       return;
     }
 
-    const [users]: any = await pool.query("SELECT * FROM login WHERE id = ?", [
+    // Check if old and new passwords are the same
+    if (oldPassword === newPassword) {
+      res.status(400).json({
+        message: "New password cannot be the same as old password",
+      });
+      return;
+    }
+
+    // First check in login table
+    let [users]: any = await pool.query("SELECT * FROM login WHERE id = ?", [
       id,
     ]);
+    let tableSource = "login";
+
+    // If not found in login, check in system_users
+    if (!users.length) {
+      [users] = await pool.query("SELECT * FROM system_users WHERE id = ?", [
+        id,
+      ]);
+      tableSource = "system_users";
+    }
 
     if (!users.length) {
       res.status(404).json({ message: "User not found" });
@@ -187,18 +159,28 @@ export const changePassword = async (
 
     const user = users[0];
 
+    // Verify old password
     const isMatch = await bcrypt.compare(oldPassword, user.password);
     if (!isMatch) {
       res.status(400).json({ message: "Old password is incorrect" });
       return;
     }
 
+    // Hash new password
     const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
 
-    await pool.query("UPDATE login SET password = ? WHERE id = ?", [
-      hashedPassword,
-      id,
-    ]);
+    // Update in the appropriate table
+    if (tableSource === "login") {
+      await pool.query("UPDATE login SET password = ? WHERE id = ?", [
+        hashedPassword,
+        id,
+      ]);
+    } else {
+      await pool.query("UPDATE system_users SET password = ? WHERE id = ?", [
+        hashedPassword,
+        id,
+      ]);
+    }
 
     res.status(200).json({ message: "Password updated successfully!" });
   } catch (error) {
