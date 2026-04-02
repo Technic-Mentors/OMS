@@ -2,20 +2,25 @@ import { Request, Response } from "express";
 import pool from "../database/db";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
+
 const CLOUDINARY_BASE_URL =
-  "https://res.cloudinary.com/dnzo0rrk5/image/upload/v1773908483/oms_users/user_1773908481231_234.jpg";
+  "https://res.cloudinary.com/dnzo0rrk5/image/upload/v1773908483/oms_users/user_1775044832575_729.jpg";
+
+const DEFAULT_AVATAR = "https://cdn-icons-png.flaticon.com/128/924/924874.png";
 
 const saltRounds = 10;
 const SECRET_KEY = "your_secret_key";
 
+// ================= LOGIN =================
 export const login = async (req: Request, res: Response): Promise<void> => {
   try {
     const { email, password } = req.body;
 
     if (!email || !password) {
-      res
-        .status(400)
-        .json({ status: 400, message: "Email and password are required" });
+      res.status(400).json({
+        status: 400,
+        message: "Email and password are required",
+      });
       return;
     }
 
@@ -25,6 +30,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     let [users]: any = await pool.query("SELECT * FROM login WHERE email = ?", [
       lowerEmail,
     ]);
+
     let tableSource = "login";
 
     // CHECK SYSTEM_USERS TABLE
@@ -37,48 +43,49 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     }
 
     if (users.length === 0) {
-      res
-        .status(400)
-        .json({ status: 400, message: "Invalid email or password" });
+      res.status(400).json({
+        status: 400,
+        message: "Invalid email or password",
+      });
       return;
     }
 
     const user = users[0];
-
-    // ACCOUNT STATUS CHECK
 
     // PASSWORD CHECK
     let storedPassword = user.password;
 
     if (tableSource === "login" && !storedPassword.startsWith("$2b$")) {
       const hashedPassword = await bcrypt.hash(storedPassword, saltRounds);
+
       await pool.query("UPDATE login SET password = ? WHERE email = ?", [
         hashedPassword,
         lowerEmail,
       ]);
+
       storedPassword = hashedPassword;
     }
 
     const isMatch = await bcrypt.compare(password, storedPassword);
 
     if (!isMatch) {
-      res
-        .status(400)
-        .json({ status: 400, message: "Invalid email or password" });
+      res.status(400).json({
+        status: 400,
+        message: "Invalid email or password",
+      });
       return;
     }
 
-    // FETCH PERMISSIONS BASED ON ROLE
+    // FETCH PERMISSIONS
     let allowedModules: string[] = [];
-
     const roleIdToUse = user.roleId;
 
     if (roleIdToUse) {
       const [permissions]: any = await pool.query(
-        `SELECT m.moduleName
-     FROM access_control ac
-     JOIN modules m ON ac.moduleId = m.id
-     WHERE ac.roleId = ? AND ac.status = 1`,
+        `SELECT m.moduleName 
+         FROM access_control ac 
+         JOIN modules m ON ac.moduleId = m.id 
+         WHERE ac.roleId = ? AND ac.status = 1`,
         [roleIdToUse],
       );
 
@@ -87,12 +94,27 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 
     // TOKEN
     const token = jwt.sign(
-      { id: user.id, email: user.email, role: user.role, source: tableSource },
+      {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        source: tableSource,
+      },
       SECRET_KEY,
       { expiresIn: "1d" },
     );
 
-    // SUCCESS RESPONSE
+    let finalImage = DEFAULT_AVATAR;
+
+    if (user.role?.toLowerCase() === "admin") {
+      finalImage = CLOUDINARY_BASE_URL;
+    } else if (tableSource === "login") {
+      finalImage = user.image ? user.image : DEFAULT_AVATAR;
+    } else if (tableSource === "system_users") {
+      finalImage = DEFAULT_AVATAR;
+    }
+
+    // RESPONSE
     res.status(200).json({
       status: 200,
       message: "Login successful",
@@ -102,19 +124,24 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       email: user.email,
       role: user.role,
       roleId: user.roleId,
-      permissions: allowedModules, // MODULE PERMISSIONS
+      permissions: allowedModules,
       contact: tableSource === "login" ? user.contact : user.phone,
       cnic: user.cnic,
       date: user.date || user.created_at,
-      image: user.image ? user.image : `${CLOUDINARY_BASE_URL}`,
+      image: finalImage,
       source: tableSource,
     });
   } catch (error) {
     console.error("Multi-Table Login Error:", error);
-    res.status(500).json({ status: 500, message: "Internal Server Error" });
+
+    res.status(500).json({
+      status: 500,
+      message: "Internal Server Error",
+    });
   }
 };
 
+// ================= CHANGE PASSWORD =================
 export const changePassword = async (
   req: Request<any>,
   res: Response,
@@ -124,13 +151,12 @@ export const changePassword = async (
     const { oldPassword, newPassword } = req.body;
 
     if (!oldPassword || !newPassword) {
-      res
-        .status(400)
-        .json({ message: "Both old and new passwords are required" });
+      res.status(400).json({
+        message: "Both old and new passwords are required",
+      });
       return;
     }
 
-    // Check if old and new passwords are the same
     if (oldPassword === newPassword) {
       res.status(400).json({
         message: "New password cannot be the same as old password",
@@ -138,13 +164,14 @@ export const changePassword = async (
       return;
     }
 
-    // First check in login table
+    // CHECK LOGIN TABLE
     let [users]: any = await pool.query("SELECT * FROM login WHERE id = ?", [
       id,
     ]);
+
     let tableSource = "login";
 
-    // If not found in login, check in system_users
+    // CHECK SYSTEM USERS
     if (!users.length) {
       [users] = await pool.query("SELECT * FROM system_users WHERE id = ?", [
         id,
@@ -159,17 +186,20 @@ export const changePassword = async (
 
     const user = users[0];
 
-    // Verify old password
+    // VERIFY OLD PASSWORD
     const isMatch = await bcrypt.compare(oldPassword, user.password);
+
     if (!isMatch) {
-      res.status(400).json({ message: "Old password is incorrect" });
+      res.status(400).json({
+        message: "Old password is incorrect",
+      });
       return;
     }
 
-    // Hash new password
+    // HASH NEW PASSWORD
     const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
 
-    // Update in the appropriate table
+    // UPDATE PASSWORD
     if (tableSource === "login") {
       await pool.query("UPDATE login SET password = ? WHERE id = ?", [
         hashedPassword,
@@ -182,13 +212,19 @@ export const changePassword = async (
       ]);
     }
 
-    res.status(200).json({ message: "Password updated successfully!" });
+    res.status(200).json({
+      message: "Password updated successfully!",
+    });
   } catch (error) {
     console.error("Error changing password:", error);
-    res.status(500).json({ message: "Internal Server Error" });
+
+    res.status(500).json({
+      message: "Internal Server Error",
+    });
   }
 };
 
+// ================= CONFIRM PASSWORD =================
 export const confirmPassword = async (
   req: Request,
   res: Response,
@@ -216,7 +252,9 @@ export const confirmPassword = async (
     ]);
 
     if (!users.length) {
-      res.status(404).json({ message: "User not found" });
+      res.status(404).json({
+        message: "User not found",
+      });
       return;
     }
 
@@ -232,6 +270,7 @@ export const confirmPassword = async (
     });
   } catch (error) {
     console.error("Change Password Error:", error);
+
     res.status(500).json({
       message: "Internal Server Error",
     });

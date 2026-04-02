@@ -62,6 +62,34 @@ export const addUser = async (req: Request, res: Response): Promise<void> => {
     console.log("BODY:", req.body);
     console.log("FILE:", req.file);
 
+    // 🔍 CHECK DUPLICATES BEFORE INSERT
+    const [existing]: any = await pool.query(
+      `SELECT id FROM login 
+   WHERE LOWER(email) = LOWER(?) 
+   OR contact = ? 
+   OR cnic = ?`,
+      [email, contact, cnic],
+    );
+
+    if (existing.length > 0) {
+      const duplicates: string[] = [];
+
+      const emails = existing.some(
+        (u: any) => u.email?.toLowerCase() === email.toLowerCase(),
+      );
+      const phones = existing.some((u: any) => u.contact === contact);
+      const cnics = existing.some((u: any) => u.cnic === cnic);
+
+      if (emails) duplicates.push("Email");
+      if (phones) duplicates.push("Phone");
+      if (cnics) duplicates.push("CNIC");
+
+      res.status(400).json({
+        message: `${duplicates.join(" and ")} already exists!`,
+      });
+      return;
+    }
+
     // Continue with database insertion...
     const query = `
       INSERT INTO login (name, email, password, contact, cnic, address, date, role, image)
@@ -100,7 +128,7 @@ export const updateUser = async (
 ): Promise<void> => {
   try {
     const userId = req.params.id;
-    let { name, email, contact, cnic, address, role} = req.body;
+    let { name, email, contact, cnic, address, role } = req.body;
 
     if (!userId) {
       res.status(400).json({ message: "User ID is required" });
@@ -120,27 +148,33 @@ export const updateUser = async (
     if (email) email = email.toLowerCase();
 
     // Check for duplicates (excluding current user)
+    // 🔍 CHECK DUPLICATES (SAFE VERSION)
     const [existingUsers]: any = await pool.query(
-      `SELECT * FROM login WHERE id != ? AND (LOWER(email) = LOWER(?) OR contact = ? OR cnic = ?)`,
-      [userId, email || "", contact || "", cnic || ""],
+      `SELECT id, email, contact, cnic FROM login 
+   WHERE id != ?`,
+      [userId],
     );
 
-    if (existingUsers.length > 0) {
-      const duplicates: string[] = [];
-      if (
-        existingUsers.some(
-          (u: any) => u.email.toLowerCase() === email?.toLowerCase(),
-        )
-      )
-        duplicates.push("Email");
-      if (existingUsers.some((u: any) => u.contact === contact))
-        duplicates.push("Phone");
-      if (existingUsers.some((u: any) => u.cnic === cnic))
-        duplicates.push("CNIC");
+    const duplicates: string[] = [];
 
-      res
-        .status(400)
-        .json({ message: `${duplicates.join(" and ")} already exists!` });
+    const emailTaken = existingUsers.some(
+      (u: any) => email && u.email?.toLowerCase() === email.toLowerCase(),
+    );
+
+    const phoneTaken = existingUsers.some(
+      (u: any) => contact && u.contact === contact,
+    );
+
+    const cnicTaken = existingUsers.some((u: any) => cnic && u.cnic === cnic);
+
+    if (emailTaken) duplicates.push("Email");
+    if (phoneTaken) duplicates.push("Phone");
+    if (cnicTaken) duplicates.push("CNIC");
+
+    if (duplicates.length > 0) {
+      res.status(400).json({
+        message: `${duplicates.join(" and ")} already exists!`,
+      });
       return;
     }
 
@@ -152,8 +186,6 @@ export const updateUser = async (
       const result = await uploadToCloudinary(file.buffer, "oms_users");
       updates.image = result.secure_url;
     }
-
-    
 
     // Clean undefined fields so they aren't part of the SQL query
     Object.keys(updates).forEach(
