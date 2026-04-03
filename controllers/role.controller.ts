@@ -38,40 +38,40 @@ export const addRole = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
-export const updateRole = async (
-  req: Request,
-  res: Response,
-): Promise<void> => {
-  const { id } = req.params;
-  const { roleName } = req.body as { roleName: string };
-  if (!roleName) {
-    res.status(400).json({ message: "Role name required" });
-    return;
-  }
+// export const updateRole = async (
+//   req: Request,
+//   res: Response,
+// ): Promise<void> => {
+//   const { id } = req.params;
+//   const { roleName } = req.body as { roleName: string };
+//   if (!roleName) {
+//     res.status(400).json({ message: "Role name required" });
+//     return;
+//   }
 
-  try {
-    const [result] = await pool.query(
-      "UPDATE roles SET roleName = ? WHERE id = ? AND is_deleted = FALSE",
-      [roleName, id],
-    );
-    res.json({ message: "Role updated successfully" });
-  } catch (err: any) {
-    console.error(err);
-    if (err.code === "ER_DUP_ENTRY") {
-      res.status(400).json({ message: "Role name already exists" });
-      return;
-    }
-    res.status(500).json({ message: "Failed to update role" });
-  }
-};
+//   try {
+//     const [result] = await pool.query(
+//       "UPDATE roles SET roleName = ? WHERE id = ? AND is_deleted = FALSE",
+//       [roleName, id],
+//     );
+//     res.json({ message: "Role updated successfully" });
+//   } catch (err: any) {
+//     console.error(err);
+//     if (err.code === "ER_DUP_ENTRY") {
+//       res.status(400).json({ message: "Role name already exists" });
+//       return;
+//     }
+//     res.status(500).json({ message: "Failed to update role" });
+//   }
+// };
 
-export const deleteRole = async (req: Request, res: Response) => {
-  const { id } = req.params;
-  try {
-    await pool.query("DELETE FROM roles WHERE id = ?", [id]);
-    res.json({ message: "Role deleted successfully" });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Failed to delete role" });
-  }
-};
+// export const deleteRole = async (req: Request, res: Response) => {
+//   const { id } = req.params;
+//   try {
+//     await pool.query("DELETE FROM roles WHERE id = ?", [id]);
+//     res.json({ message: "Role deleted successfully" });
+//   } catch (err) {
+//     console.error(err);
+//     res.status(500).json({ message: "Failed to delete role" });
+//   }
+// };

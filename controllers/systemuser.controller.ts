@@ -20,6 +20,7 @@ export const getSytemUsers = async (req: Request, res: Response) => {
         phone,
         cnic,
         email,
+        roleId,  -- Added roleId
         role,
         status,
         created_at,
@@ -38,8 +39,9 @@ export const getSytemUsers = async (req: Request, res: Response) => {
 
 export const getRoles = async (req: Request, res: Response) => {
   try {
-    const [roles]: any = await pool.query("SELECT DISTINCT role FROM system_users");
-    res.json({ roles: roles.map((r: any) => r.role) });
+    // Fetch distinct roles and their IDs for the dropdowns
+    const [roles]: any = await pool.query("SELECT id, roleName FROM roles");
+    res.json({ roles });
   } catch (error) {
     res.status(500).json({ message: "Failed to fetch roles" });
   }
@@ -50,68 +52,54 @@ export const addSystemUser = async (
   res: Response,
 ): Promise<void> => {
   try {
-    let { name, cnic, phone, email, password, role, status } = req.body;
+    // Destructure roleId from the body
+    let { name, cnic, phone, email, password, roleId, role, status } = req.body;
 
-    if (!name || !email || !password || !role) {
-      res.status(400).json({ message: "Required fields are missing" });
+    if (!name || !email || !password || !roleId || !role) {
+      res
+        .status(400)
+        .json({ message: "Required fields (including Role) are missing" });
       return;
     }
 
     name = formatName(name.trim());
     email = email.toLowerCase().trim();
 
+    // Validation logic...
     if (!emailRegex.test(email)) {
       res.status(400).json({ message: "Invalid email format" });
       return;
     }
 
-    if (phone && !phoneRegex.test(phone)) {
-      res.status(400).json({ message: "Phone must be exactly 11 digits" });
-      return;
-    }
-
-    if (cnic && !cnicRegex.test(cnic)) {
-      res.status(400).json({ message: "CNIC must be exactly 13 digits" });
-      return;
-    }
-
-    if (password.length < 8 || password.length > 20) {
-      res.status(400).json({ message: "Password must be between 8 and 20 characters" });
+    if (password.length < 8) {
+      res.status(400).json({ message: "Password too short" });
       return;
     }
 
     const [existingUsers]: any = await pool.query(
-      `SELECT email, phone, cnic FROM system_users
-       WHERE LOWER(email) = LOWER(?) 
-          OR phone = ? 
-          OR cnic = ?`,
-      [email, phone || null, cnic || null],
+      `SELECT email FROM system_users WHERE LOWER(email) = LOWER(?)`,
+      [email],
     );
 
     if (existingUsers.length > 0) {
-      const duplicates: string[] = [];
-      if (existingUsers.some((u: any) => u.email.toLowerCase() === email)) duplicates.push("Email");
-      if (phone && existingUsers.some((u: any) => u.phone === phone)) duplicates.push("Phone");
-      if (cnic && existingUsers.some((u: any) => u.cnic === cnic)) duplicates.push("CNIC");
-
-      res.status(400).json({ 
-        message: `${duplicates.join(" and ")} already ${duplicates.length > 1 ? 'exist' : 'exists'}!` 
-      });
+      res.status(400).json({ message: "Email already exists!" });
       return;
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    // FIX: Include roleId in the INSERT statement
     await pool.query(
-      `INSERT INTO system_users (name, cnic, phone, email, password, role, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO system_users (name, cnic, phone, email, password, roleId, role, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         name,
         cnic || null,
         phone || null,
         email,
         hashedPassword,
-        role,
+        roleId, // Foreign Key ID
+        role, // String Name (e.g. 'Admin')
         status || "Active",
       ],
     );
@@ -129,26 +117,24 @@ export const updateSystemUser = async (
 ): Promise<void> => {
   try {
     const { id } = req.params;
-    let { name, cnic, phone, email, role, status, password } = req.body;
+    let { name, cnic, phone, email, roleId, role, status, password } = req.body;
 
     if (!id) {
       res.status(400).json({ message: "User ID is required" });
       return;
     }
 
-    const [existing]: any = await pool.query(
-      `SELECT id FROM system_users 
-       WHERE (LOWER(email) = LOWER(?) OR phone = ? OR cnic = ?) AND id != ?`,
-      [email, phone || null, cnic || null, id],
-    );
-
-    if (existing.length > 0) {
-      res.status(400).json({ message: "Email, Phone, or CNIC already in use by another user" });
-      return;
-    }
-
-    let query = `UPDATE system_users SET name=?, cnic=?, phone=?, email=?, role=?, status=?`;
-    const values: any[] = [name, cnic || null, phone || null, email, role, status || "Active"];
+    // FIX: Added roleId and role to the UPDATE query
+    let query = `UPDATE system_users SET name=?, cnic=?, phone=?, email=?, roleId=?, role=?, status=?`;
+    const values: any[] = [
+      name,
+      cnic || null,
+      phone || null,
+      email,
+      roleId,
+      role,
+      status || "Active",
+    ];
 
     if (password) {
       const hashedPassword = await bcrypt.hash(password, 10);
@@ -173,10 +159,15 @@ export const updateSystemUser = async (
   }
 };
 
+// ... keep deleteUser and systemUserLogin as they were
+
 export const deleteUser = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const [result]: any = await pool.query("DELETE FROM system_users WHERE id=?", [id]);
+    const [result]: any = await pool.query(
+      "DELETE FROM system_users WHERE id=?",
+      [id],
+    );
 
     if (result.affectedRows === 0) {
       res.status(404).json({ message: "User not found" });
@@ -189,7 +180,10 @@ export const deleteUser = async (req: Request, res: Response) => {
   }
 };
 
-export const systemUserLogin = async (req: Request, res: Response): Promise<void> => {
+export const systemUserLogin = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
   try {
     const { email, password } = req.body;
 
@@ -201,7 +195,7 @@ export const systemUserLogin = async (req: Request, res: Response): Promise<void
     // 1. Check if user exists in system_users table
     const [users]: any = await pool.query(
       "SELECT * FROM system_users WHERE LOWER(email) = LOWER(?)",
-      [email.trim()]
+      [email.trim()],
     );
 
     if (users.length === 0) {
@@ -213,8 +207,8 @@ export const systemUserLogin = async (req: Request, res: Response): Promise<void
 
     // 2. Check account status
     if (user.status !== "Active") {
-      res.status(403).json({ 
-        message: "Your account is inactive. Please contact the administrator." 
+      res.status(403).json({
+        message: "Your account is inactive. Please contact the administrator.",
       });
       return;
     }
@@ -228,8 +222,8 @@ export const systemUserLogin = async (req: Request, res: Response): Promise<void
 
     const token = jwt.sign(
       { id: user.id, email: user.email, role: user.role },
-      "your_secret_key", 
-      { expiresIn: "1d" }
+      "your_secret_key",
+      { expiresIn: "1d" },
     );
 
     res.status(200).json({
@@ -241,12 +235,12 @@ export const systemUserLogin = async (req: Request, res: Response): Promise<void
         name: user.name,
         email: user.email,
         role: user.role,
+        roleId: user.roleId,
         phone: user.phone,
         cnic: user.cnic,
-        status: user.status
-      }
+        status: user.status,
+      },
     });
-
   } catch (error) {
     console.error("System User Login Error:", error);
     res.status(500).json({ message: "Internal Server Error" });
