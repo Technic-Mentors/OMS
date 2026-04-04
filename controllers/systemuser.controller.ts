@@ -1,34 +1,31 @@
 import { Request, Response } from "express";
 import pool from "../database/db";
 import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const phoneRegex = /^\d{11}$/;
-const cnicRegex = /^\d{13}$/;
 
 const formatName = (name: string) =>
   name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
 
+// ================= GET USERS =================
 export const getSytemUsers = async (req: Request, res: Response) => {
   try {
-    const [users]: any = await pool.query(
-      `
+    const [users]: any = await pool.query(`
       SELECT 
         id,
         name,
-        phone,
+        contact,
         cnic,
         email,
-        roleId,  -- Added roleId
+        roleId,
         role,
         status,
         created_at,
         updated_at
-      FROM system_users
+      FROM login
+      WHERE LOWER(role) != 'user'
       ORDER BY id ASC
-      `,
-    );
+    `);
 
     res.json({ users });
   } catch (error) {
@@ -37,9 +34,9 @@ export const getSytemUsers = async (req: Request, res: Response) => {
   }
 };
 
+// ================= GET ROLES =================
 export const getRoles = async (req: Request, res: Response) => {
   try {
-    // Fetch distinct roles and their IDs for the dropdowns
     const [roles]: any = await pool.query("SELECT id, roleName FROM roles");
     res.json({ roles });
   } catch (error) {
@@ -47,25 +44,25 @@ export const getRoles = async (req: Request, res: Response) => {
   }
 };
 
+// ================= ADD USER =================
 export const addSystemUser = async (
   req: Request,
   res: Response,
 ): Promise<void> => {
   try {
-    // Destructure roleId from the body
-    let { name, cnic, phone, email, password, roleId, role, status } = req.body;
+    let { name, cnic, contact, email, password, roleId, role, status } =
+      req.body;
 
     if (!name || !email || !password || !roleId || !role) {
-      res
-        .status(400)
-        .json({ message: "Required fields (including Role) are missing" });
+      res.status(400).json({
+        message: "Required fields (including Role) are missing",
+      });
       return;
     }
 
     name = formatName(name.trim());
     email = email.toLowerCase().trim();
 
-    // Validation logic...
     if (!emailRegex.test(email)) {
       res.status(400).json({ message: "Invalid email format" });
       return;
@@ -77,7 +74,7 @@ export const addSystemUser = async (
     }
 
     const [existingUsers]: any = await pool.query(
-      `SELECT email FROM system_users WHERE LOWER(email) = LOWER(?)`,
+      `SELECT email FROM login WHERE LOWER(email) = LOWER(?)`,
       [email],
     );
 
@@ -88,48 +85,45 @@ export const addSystemUser = async (
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // FIX: Include roleId in the INSERT statement
     await pool.query(
-      `INSERT INTO system_users (name, cnic, phone, email, password, roleId, role, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO login 
+      (name, cnic, contact, email, password, roleId, role, status)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         name,
         cnic || null,
-        phone || null,
+        contact || null,
         email,
         hashedPassword,
-        roleId, // Foreign Key ID
-        role, // String Name (e.g. 'Admin')
+        roleId,
+        role,
         status || "Active",
       ],
     );
 
     res.status(201).json({ message: "User added successfully" });
   } catch (error) {
-    console.error("Add System User Error:", error);
+    console.error("Add User Error:", error);
     res.status(500).json({ message: "Internal Server Error" });
   }
 };
 
+// ================= UPDATE USER =================
 export const updateSystemUser = async (
   req: Request,
   res: Response,
 ): Promise<void> => {
   try {
     const { id } = req.params;
-    let { name, cnic, phone, email, roleId, role, status, password } = req.body;
+    let { name, cnic, contact, email, roleId, role, status, password } =
+      req.body;
 
-    if (!id) {
-      res.status(400).json({ message: "User ID is required" });
-      return;
-    }
+    let query = `UPDATE login SET name=?, cnic=?, contact=?, email=?, roleId=?, role=?, status=?`;
 
-    // FIX: Added roleId and role to the UPDATE query
-    let query = `UPDATE system_users SET name=?, cnic=?, phone=?, email=?, roleId=?, role=?, status=?`;
     const values: any[] = [
       name,
       cnic || null,
-      phone || null,
+      contact || null,
       email,
       roleId,
       role,
@@ -154,20 +148,19 @@ export const updateSystemUser = async (
 
     res.json({ message: "User updated successfully" });
   } catch (error) {
-    console.error("Update System User Error:", error);
+    console.error("Update User Error:", error);
     res.status(500).json({ message: "Internal Server Error" });
   }
 };
 
-// ... keep deleteUser and systemUserLogin as they were
-
+// ================= DELETE USER =================
 export const deleteUser = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const [result]: any = await pool.query(
-      "DELETE FROM system_users WHERE id=?",
-      [id],
-    );
+
+    const [result]: any = await pool.query("DELETE FROM login WHERE id=?", [
+      id,
+    ]);
 
     if (result.affectedRows === 0) {
       res.status(404).json({ message: "User not found" });
@@ -176,73 +169,6 @@ export const deleteUser = async (req: Request, res: Response) => {
 
     res.json({ message: "User deleted successfully" });
   } catch (error) {
-    res.status(500).json({ message: "Internal Server Error" });
-  }
-};
-
-export const systemUserLogin = async (
-  req: Request,
-  res: Response,
-): Promise<void> => {
-  try {
-    const { email, password } = req.body;
-
-    if (!email || !password) {
-      res.status(400).json({ message: "Email and password are required" });
-      return;
-    }
-
-    // 1. Check if user exists in system_users table
-    const [users]: any = await pool.query(
-      "SELECT * FROM system_users WHERE LOWER(email) = LOWER(?)",
-      [email.trim()],
-    );
-
-    if (users.length === 0) {
-      res.status(401).json({ message: "Invalid email or password" });
-      return;
-    }
-
-    const user = users[0];
-
-    // 2. Check account status
-    if (user.status !== "Active") {
-      res.status(403).json({
-        message: "Your account is inactive. Please contact the administrator.",
-      });
-      return;
-    }
-
-    // 3. Compare passwords
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      res.status(401).json({ message: "Invalid email or password" });
-      return;
-    }
-
-    const token = jwt.sign(
-      { id: user.id, email: user.email, role: user.role },
-      "your_secret_key",
-      { expiresIn: "1d" },
-    );
-
-    res.status(200).json({
-      status: 200,
-      message: "Login successful",
-      token,
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        roleId: user.roleId,
-        phone: user.phone,
-        cnic: user.cnic,
-        status: user.status,
-      },
-    });
-  } catch (error) {
-    console.error("System User Login Error:", error);
     res.status(500).json({ message: "Internal Server Error" });
   }
 };

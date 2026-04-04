@@ -10,7 +10,7 @@ export const getAllUsers = async (
   res: Response,
 ): Promise<void> => {
   try {
-    const [rows]: any = await pool.query("SELECT * FROM login");
+    const [rows]: any = await pool.query("SELECT * FROM login WHERE LOWER(role) = 'user'");
     res.json({ users: rows });
   } catch (error) {
     console.error("Error fetching users:", error);

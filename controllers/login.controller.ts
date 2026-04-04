@@ -6,7 +6,8 @@ import bcrypt from "bcryptjs";
 const CLOUDINARY_BASE_URL =
   "https://res.cloudinary.com/dnzo0rrk5/image/upload/v1773908483/oms_users/user_1775044832575_729.jpg";
 
-const DEFAULT_AVATAR = "https://cdn-icons-png.flaticon.com/128/924/924874.png";
+const DEFAULT_AVATAR =
+  "https://cdn-icons-png.flaticon.com/128/924/924874.png";
 
 const saltRounds = 10;
 const SECRET_KEY = "your_secret_key";
@@ -26,21 +27,11 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 
     const lowerEmail = email.toLowerCase().trim();
 
-    // CHECK LOGIN TABLE
-    let [users]: any = await pool.query("SELECT * FROM login WHERE email = ?", [
-      lowerEmail,
-    ]);
-
-    let tableSource = "login";
-
-    // CHECK SYSTEM_USERS TABLE
-    if (users.length === 0) {
-      [users] = await pool.query(
-        "SELECT * FROM system_users WHERE LOWER(email) = ?",
-        [lowerEmail],
-      );
-      tableSource = "system_users";
-    }
+    // ✅ SINGLE TABLE LOGIN
+    const [users]: any = await pool.query(
+      "SELECT * FROM login WHERE LOWER(email) = ?",
+      [lowerEmail]
+    );
 
     if (users.length === 0) {
       res.status(400).json({
@@ -55,7 +46,8 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     // PASSWORD CHECK
     let storedPassword = user.password;
 
-    if (tableSource === "login" && !storedPassword.startsWith("$2b$")) {
+    // Auto-hash old plain passwords
+    if (!storedPassword.startsWith("$2b$")) {
       const hashedPassword = await bcrypt.hash(storedPassword, saltRounds);
 
       await pool.query("UPDATE login SET password = ? WHERE email = ?", [
@@ -76,17 +68,25 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
+    // CHECK STATUS
+    if (user.status && user.status !== "Active") {
+      res.status(403).json({
+        status: 403,
+        message: "Your account is inactive. Contact admin.",
+      });
+      return;
+    }
+
     // FETCH PERMISSIONS
     let allowedModules: string[] = [];
-    const roleIdToUse = user.roleId;
 
-    if (roleIdToUse) {
+    if (user.roleId) {
       const [permissions]: any = await pool.query(
         `SELECT m.moduleName 
          FROM access_control ac 
          JOIN modules m ON ac.moduleId = m.id 
          WHERE ac.roleId = ? AND ac.status = 1`,
-        [roleIdToUse],
+        [user.roleId]
       );
 
       allowedModules = permissions.map((p: any) => p.moduleName);
@@ -98,20 +98,18 @@ export const login = async (req: Request, res: Response): Promise<void> => {
         id: user.id,
         email: user.email,
         role: user.role,
-        source: tableSource,
       },
       SECRET_KEY,
-      { expiresIn: "1d" },
+      { expiresIn: "1d" }
     );
 
+    // IMAGE LOGIC
     let finalImage = DEFAULT_AVATAR;
 
     if (user.role?.toLowerCase() === "admin") {
       finalImage = CLOUDINARY_BASE_URL;
-    } else if (tableSource === "login") {
+    } else {
       finalImage = user.image ? user.image : DEFAULT_AVATAR;
-    } else if (tableSource === "system_users") {
-      finalImage = DEFAULT_AVATAR;
     }
 
     // RESPONSE
@@ -125,14 +123,13 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       role: user.role,
       roleId: user.roleId,
       permissions: allowedModules,
-      contact: tableSource === "login" ? user.contact : user.phone,
+      contact: user.contact,
       cnic: user.cnic,
       date: user.date || user.created_at,
       image: finalImage,
-      source: tableSource,
     });
   } catch (error) {
-    console.error("Multi-Table Login Error:", error);
+    console.error("Login Error:", error);
 
     res.status(500).json({
       status: 500,
@@ -144,7 +141,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 // ================= CHANGE PASSWORD =================
 export const changePassword = async (
   req: Request<any>,
-  res: Response,
+  res: Response
 ): Promise<void> => {
   try {
     const { id } = req.params;
@@ -164,20 +161,10 @@ export const changePassword = async (
       return;
     }
 
-    // CHECK LOGIN TABLE
-    let [users]: any = await pool.query("SELECT * FROM login WHERE id = ?", [
-      id,
-    ]);
-
-    let tableSource = "login";
-
-    // CHECK SYSTEM USERS
-    if (!users.length) {
-      [users] = await pool.query("SELECT * FROM system_users WHERE id = ?", [
-        id,
-      ]);
-      tableSource = "system_users";
-    }
+    const [users]: any = await pool.query(
+      "SELECT * FROM login WHERE id = ?",
+      [id]
+    );
 
     if (!users.length) {
       res.status(404).json({ message: "User not found" });
@@ -186,7 +173,6 @@ export const changePassword = async (
 
     const user = users[0];
 
-    // VERIFY OLD PASSWORD
     const isMatch = await bcrypt.compare(oldPassword, user.password);
 
     if (!isMatch) {
@@ -196,21 +182,12 @@ export const changePassword = async (
       return;
     }
 
-    // HASH NEW PASSWORD
     const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
 
-    // UPDATE PASSWORD
-    if (tableSource === "login") {
-      await pool.query("UPDATE login SET password = ? WHERE id = ?", [
-        hashedPassword,
-        id,
-      ]);
-    } else {
-      await pool.query("UPDATE system_users SET password = ? WHERE id = ?", [
-        hashedPassword,
-        id,
-      ]);
-    }
+    await pool.query("UPDATE login SET password = ? WHERE id = ?", [
+      hashedPassword,
+      id,
+    ]);
 
     res.status(200).json({
       message: "Password updated successfully!",
@@ -227,7 +204,7 @@ export const changePassword = async (
 // ================= CONFIRM PASSWORD =================
 export const confirmPassword = async (
   req: Request,
-  res: Response,
+  res: Response
 ): Promise<void> => {
   try {
     const { id } = req.params;
@@ -247,9 +224,10 @@ export const confirmPassword = async (
       return;
     }
 
-    const [users]: any = await pool.query("SELECT id FROM login WHERE id = ?", [
-      id,
-    ]);
+    const [users]: any = await pool.query(
+      "SELECT id FROM login WHERE id = ?",
+      [id]
+    );
 
     if (!users.length) {
       res.status(404).json({
