@@ -10,7 +10,7 @@ export const getAllUsers = async (
   res: Response,
 ): Promise<void> => {
   try {
-    const [rows]: any = await pool.query("SELECT * FROM login WHERE LOWER(role) = 'user'");
+    const [rows]: any = await pool.query("SELECT * FROM tbl_users WHERE LOWER(role) = 'user'");
     res.json({ users: rows });
   } catch (error) {
     console.error("Error fetching users:", error);
@@ -64,7 +64,7 @@ export const addUser = async (req: Request, res: Response): Promise<void> => {
 
     // 🔍 CHECK DUPLICATES BEFORE INSERT
     const [existing]: any = await pool.query(
-      `SELECT id FROM login 
+      `SELECT id FROM tbl_users
    WHERE LOWER(email) = LOWER(?) 
    OR contact = ? 
    OR cnic = ?`,
@@ -92,7 +92,7 @@ export const addUser = async (req: Request, res: Response): Promise<void> => {
 
     // Continue with database insertion...
     const query = `
-      INSERT INTO login (name, email, password, contact, cnic, address, date, role, image)
+      INSERT INTO tbl_users (name, email, password, contact, cnic, address, date, role, image)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
@@ -136,7 +136,7 @@ export const updateUser = async (
     }
 
     const [userRows]: any = await pool.query(
-      "SELECT * FROM login WHERE id = ?",
+      "SELECT * FROM tbl_users WHERE id = ?",
       [userId],
     );
     if (userRows.length === 0) {
@@ -150,7 +150,7 @@ export const updateUser = async (
     // Check for duplicates (excluding current user)
     // 🔍 CHECK DUPLICATES (SAFE VERSION)
     const [existingUsers]: any = await pool.query(
-      `SELECT id, email, contact, cnic FROM login 
+      `SELECT id, email, contact, cnic FROM tbl_users
    WHERE id != ?`,
       [userId],
     );
@@ -199,7 +199,7 @@ export const updateUser = async (
     }
 
     // Build query dynamically without trailing comma issues
-    const query = `UPDATE login SET ${keys.map((key) => `\`${key}\` = ?`).join(", ")} WHERE id = ?`;
+    const query = `UPDATE tbl_users SET ${keys.map((key) => `\`${key}\` = ?`).join(", ")} WHERE id = ?`;
     const values = [...Object.values(updates), userId];
 
     await pool.query(query, values);
@@ -218,11 +218,11 @@ export const updateUser = async (
 export const deleteUser = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const query = "UPDATE login SET loginStatus = 'N' WHERE id = ?";
+    const query = "UPDATE tbl_users SET loginStatus = 'N' WHERE id = ?";
     const [result]: any = await pool.query(query, [id]);
 
     const [getActiveUsers]: any = await pool.query(
-      "SELECT * FROM login WHERE loginStatus = 'Y'",
+      "SELECT * FROM tbl_users WHERE loginStatus = 'Y'",
     );
 
     if (result.affectedRows > 0) {

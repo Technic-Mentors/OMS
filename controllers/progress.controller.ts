@@ -21,7 +21,7 @@ SELECT
   pr.progressStatus
 FROM progress pr
 LEFT JOIN employee_lifeline e ON pr.employee_id = e.employee_id
-LEFT JOIN login u ON pr.employee_id = u.id
+LEFT JOIN tbl_users u ON pr.employee_id = u.id
 LEFT JOIN projects p ON pr.projectId = p.id
 WHERE pr.progressStatus = 'Y'
 ORDER BY pr.id ASC;
@@ -58,7 +58,7 @@ export const getMyProgress = async (
         p.date,
         p.note
       FROM progress p
-      JOIN login u ON u.id = p.employee_id
+      JOIN tbl_users u ON u.id = p.employee_id
       JOIN projects pr ON pr.id = p.projectId
       WHERE p.employee_id = ? AND p.progressStatus = 'Y'
       ORDER BY p.id ASC

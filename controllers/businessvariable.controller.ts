@@ -6,13 +6,9 @@ export const getBusinessVariables = async (req: Request, res: Response) => {
   try {
     const [rows] = await pool.query(`
         SELECT 
-            id,
-            name,
-            email,
-            contact,
-            address,
-            logo
+            id, name, email, contact, address, logo
         FROM business_variables
+        WHERE is_deleted = 0  -- Only fetch active records
         ORDER BY id DESC
     `);
 
@@ -124,16 +120,18 @@ export const deleteBusinessVariable = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
+    // Soft delete: Update the flag instead of removing the row
     await pool.query(
       `
-      DELETE FROM business_variables
-      WHERE id=?
+      UPDATE business_variables
+      SET is_deleted = 1
+      WHERE id = ?
       `,
       [id],
     );
 
     res.status(200).json({
-      message: "Business variable deleted",
+      message: "Business variable archived successfully",
     });
   } catch (error) {
     console.error("Delete error:", error);

@@ -34,7 +34,7 @@ export const withdrawEmployee = async (
 
     const [result]: any = await pool.query(insertQuery, values);
 
-    const updateQuery = "UPDATE login SET loginStatus = 'N' WHERE id = ?";
+    const updateQuery = "UPDATE tbl_users SET loginStatus = 'N' WHERE id = ?";
     await pool.query(updateQuery, [id]);
 
     res.status(201).json({
@@ -77,7 +77,7 @@ export const getWithdrawnEmployees = async (
         l.contact AS contact,
         l.date AS joiningDate
       FROM withdrawals w
-      INNER JOIN login l ON l.id = w.employee_id
+      INNER JOIN tbl_users l ON l.id = w.employee_id
       WHERE w.withdrawStatus = 'Y'
       ORDER BY w.id ASC
       LIMIT ? OFFSET ?
@@ -124,7 +124,7 @@ export const reActiveEmployee = async (
       [employeeId],
     );
 
-    await pool.query("UPDATE login SET loginStatus = 'Y' WHERE id = ?", [
+    await pool.query("UPDATE tbl_users SET loginStatus = 'Y' WHERE id = ?", [
       employeeId,
     ]);
 

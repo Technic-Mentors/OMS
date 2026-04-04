@@ -120,11 +120,13 @@ export const getAllSuppliers = async (
     const offset = (page - 1) * limit;
 
     const filterQuery = `
-      WHERE supplierName LIKE ? 
-      OR supplierEmail LIKE ?
-      OR supplierContact LIKE ?
-      OR supplierAddress LIKE ?
-    `;
+  WHERE status='Active' AND (
+    supplierName LIKE ? 
+    OR supplierEmail LIKE ?
+    OR supplierContact LIKE ?
+    OR supplierAddress LIKE ?
+  )
+`;
 
     const [suppliers]: any = await pool.query(
       `
@@ -171,7 +173,7 @@ export const getSupplier = async (
     const { supplierId } = req.params;
 
     const [supplier]: any = await pool.query(
-      `SELECT * FROM suppliers WHERE supplierId=?`,
+      `SELECT * FROM suppliers WHERE supplierId=? AND status='Active'`,
       [supplierId],
     );
 
@@ -192,7 +194,10 @@ export const deleteSupplier = async (
   try {
     const { supplierId } = req.params;
 
-    await pool.query(`DELETE FROM suppliers WHERE supplierId=?`, [supplierId]);
+    await pool.query(
+      `UPDATE suppliers SET status='Deleted' WHERE supplierId=?`,
+      [supplierId],
+    );
 
     res.status(200).json({ message: "Supplier deleted successfully" });
   } catch (error) {

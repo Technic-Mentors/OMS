@@ -6,7 +6,8 @@ export const getAssets = async (req: Request, res: Response) => {
     const [rows] = await pool.query(
       `SELECT a.id, a.asset_name, a.category_id, a.description, a.date, c.category_name
        FROM assets a
-       JOIN asset_categories c ON a.category_id = c.id`,
+       JOIN asset_categories c ON a.category_id = c.id
+       WHERE a.status = 'Y'`, // Only fetch active assets
     );
     res.json(rows);
   } catch (err) {
@@ -69,8 +70,9 @@ export const updateAsset = async (req: Request, res: Response): Promise<void> =>
 export const deleteAsset = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    await pool.query(`DELETE FROM assets WHERE id = ?`, [id]);
-    res.json({ message: "Asset deleted" });
+    // Instead of DELETE, we UPDATE the status to 'N'
+    await pool.query(`UPDATE assets SET status = 'N' WHERE id = ?`, [id]);
+    res.json({ message: "Asset moved to trash" });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Server error" });

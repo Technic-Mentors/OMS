@@ -22,7 +22,7 @@ export const getUsers = async (req: Request, res: Response): Promise<void> => {
   try {
     const [rows] = await pool.query<Login[]>(
       `SELECT id ,name
-       FROM login
+       FROM tbl_users
        WHERE loginStatus = 'Y'
        ORDER BY id DESC`,
     );
@@ -61,7 +61,7 @@ export const addEmpll = async (req: Request, res: Response): Promise<void> => {
     }
 
     const [userRows]: any = await pool.query(
-      `SELECT date FROM login WHERE id = ?`,
+      `SELECT date FROM tbl_users WHERE id = ?`,
       [employee_id],
     );
 
@@ -188,7 +188,7 @@ export const updateEmpll = async (
     const employee_id = empRows[0].employee_id;
 
     const [userRows]: any = await pool.query(
-      `SELECT date FROM login WHERE id = ?`,
+      `SELECT date FROM tbl_users WHERE id = ?`,
       [employee_id],
     );
 

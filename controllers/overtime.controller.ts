@@ -15,7 +15,7 @@ export const getOvertime = async (req: Request, res: Response) => {
         o.overtime_amount,
         o.description
       FROM overtime o
-      JOIN login u ON u.id = o.employee_id
+      JOIN tbl_users u ON u.id = o.employee_id
       ORDER BY o.id DESC
     `);
 

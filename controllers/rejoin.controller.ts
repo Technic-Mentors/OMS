@@ -48,7 +48,7 @@ export const getUsersWithAcceptedResignation = async (
     const [rows] = await pool.query(
       `SELECT l.id, l.name, r.designation, r.resignation_date
        FROM resignation r
-       JOIN login l ON r.employee_id = l.id
+       JOIN tbl_users l ON r.employee_id = l.id
        WHERE r.approval_status = 'Accepted' AND l.loginStatus = 'N'`,
     );
 
@@ -138,7 +138,7 @@ export const addRejoinRequest = async (
         : null;
 
     const [joinRows]: any = await pool.query(
-      "SELECT date FROM login WHERE id = ?",
+      "SELECT date FROM tbl_users WHERE id = ?",
       [id],
     );
 
@@ -219,7 +219,7 @@ export const updateRejoinRequest = async (
         : null;
 
     const [joinRows]: any = await pool.query(
-      "SELECT date FROM login WHERE id = ?",
+      "SELECT date FROM tbl_users WHERE id = ?",
       [employee_id],
     );
 
@@ -251,7 +251,7 @@ export const updateRejoinRequest = async (
 
     const newLoginStatus = approval_status === "Accepted" ? "Y" : "N";
 
-    await pool.query(`UPDATE login SET loginStatus = ? WHERE id = ?`, [
+    await pool.query(`UPDATE tbl_users SET loginStatus = ? WHERE id = ?`, [
       newLoginStatus,
       employee_id,
     ]);

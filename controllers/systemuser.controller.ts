@@ -24,8 +24,9 @@ export const getSytemUsers = async (req: Request, res: Response) => {
         image,
         created_at,
         updated_at
-      FROM login
+      FROM tbl_users
       WHERE LOWER(role) != 'user'
+      AND status != 'Inactive'
       ORDER BY id ASC
     `);
 
@@ -77,7 +78,7 @@ export const addSystemUser = async (
 
     // ✅ DUPLICATE CHECK
     const [existing]: any = await pool.query(
-      `SELECT id FROM login WHERE LOWER(email)=LOWER(?)`,
+      `SELECT id FROM tbl_users WHERE LOWER(email)=LOWER(?)`,
       [email],
     );
 
@@ -119,7 +120,7 @@ export const addSystemUser = async (
     const hashedPassword = await bcrypt.hash(password, 10);
 
     await pool.query(
-      `INSERT INTO login 
+      `INSERT INTO tbl_users
       (name, cnic, contact, email, password, roleId, role, status, image)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
@@ -154,9 +155,10 @@ export const updateSystemUser = async (
     const { id } = req.params;
     let { name, cnic, contact, email, roleId, role, status } = req.body;
 
-    const [userRows]: any = await pool.query("SELECT * FROM login WHERE id=?", [
-      id,
-    ]);
+    const [userRows]: any = await pool.query(
+      "SELECT * FROM tbl_users WHERE id=?",
+      [id],
+    );
 
     if (userRows.length === 0) {
       res.status(404).json({ message: "User not found" });
@@ -193,7 +195,7 @@ export const updateSystemUser = async (
 
     // ================= UPDATE =================
     await pool.query(
-      `UPDATE login SET 
+      `UPDATE tbl_users SET 
         name=?,
         cnic=?,
         contact=?,
@@ -233,7 +235,7 @@ export const deleteUser = async (req: Request, res: Response) => {
     const { id } = req.params;
 
     const [result]: any = await pool.query(
-      `UPDATE login SET status = 'Inactive' WHERE id = ?`,
+      `UPDATE tbl_users  SET status = 'Inactive', loginStatus = 'N'  WHERE id = ?`,
       [id],
     );
 

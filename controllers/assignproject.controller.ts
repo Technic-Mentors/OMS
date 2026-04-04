@@ -25,7 +25,7 @@ SELECT
   p.description,
   p.completionStatus
 FROM assignedprojects ap
-JOIN login u ON u.id = ap.employee_id
+JOIN tbl_users u ON u.id = ap.employee_id
 JOIN projects p ON p.id = ap.projectId
 WHERE ap.assignStatus = 'Y'
 ORDER BY ap.id DESC
@@ -53,7 +53,7 @@ SELECT
   p.description,
   p.completionStatus
 FROM assignedprojects ap
-JOIN login u ON u.id = ap.employee_id
+JOIN tbl_users u ON u.id = ap.employee_id
 JOIN projects p ON p.id = ap.projectId
 WHERE ap.assignStatus = 'Y'
 AND ap.employee_id = ?
@@ -83,7 +83,7 @@ export const addAssignProject = async (
     }
 
     const [userRows]: any = await pool.query(
-      "SELECT date FROM login WHERE id = ?",
+      "SELECT date FROM tbl_users WHERE id = ?",
       [employee_id],
     );
 
@@ -171,7 +171,7 @@ export const editAssignProject = async (
     }
 
     const [userRows]: any = await pool.query(
-      "SELECT date FROM login WHERE id = ?",
+      "SELECT date FROM tbl_users WHERE id = ?",
       [employee_id],
     );
 

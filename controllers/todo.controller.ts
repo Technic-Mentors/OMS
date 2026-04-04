@@ -57,7 +57,7 @@ SELECT
   t.todoStatus,
   t.completionStatus
 FROM todo t
-JOIN login u ON u.id = t.employee_id
+JOIN tbl_users u ON u.id = t.employee_id
 WHERE t.todoStatus != 'N'
 ORDER BY t.id DESC
 
@@ -97,7 +97,7 @@ export const getUserTodos = async (
         t.todoStatus,
         t.completionStatus
       FROM todo t
-      INNER JOIN login u ON u.id = t.employee_id
+      INNER JOIN tbl_users u ON u.id = t.employee_id
       WHERE t.employee_id = ?
         AND t.todoStatus != 'N'
       ORDER BY t.id DESC
@@ -155,7 +155,7 @@ export const addTodo = async (
 
       // Check if user exists
       const [userRows]: any = await connection.query(
-        "SELECT date FROM login WHERE id = ?",
+        "SELECT date FROM tbl_users WHERE id = ?",
         [finalEmployeeId],
       );
 
@@ -281,7 +281,7 @@ export const updateTodo = async (
     }
 
     const [userRows]: any = await pool.query(
-      "SELECT date FROM login WHERE id = ?",
+      "SELECT date FROM tbl_users WHERE id = ?",
       [employee_id],
     );
 

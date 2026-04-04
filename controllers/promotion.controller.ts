@@ -52,7 +52,7 @@ export const getEmployeeLifeLine = async (req: Request, res: Response) => {
         el.position,
         el.date
       FROM employee_lifeline el
-      JOIN login u ON u.id = el.employee_id
+      JOIN tbl_users u ON u.id = el.employee_id
       ORDER BY el.date DESC
     `);
 
@@ -94,7 +94,7 @@ export const addPromotion = async (
     const employee_id = req.user.role === "admin" ? id : req.user.id;
 
     const [userRows]: any = await pool.query(
-      "SELECT name, date  FROM login WHERE id = ?",
+      "SELECT name, date  FROM tbl_users WHERE id = ?",
       [employee_id],
     );
 
@@ -225,7 +225,7 @@ export const updatePromotion = async (
         );
       } else {
         const [userRows]: any = await pool.query(
-          `SELECT name, email, contact FROM login WHERE id = ?`,
+          `SELECT name, email, contact FROM tbl_users WHERE id = ?`,
           [empId],
         );
 

@@ -64,7 +64,7 @@ const getAttendanceRule = async (): Promise<any | null> => {
 export const getUsers = async (req: Request, res: Response): Promise<void> => {
   try {
     const [rows] = await pool.query<RowDataPacket[]>(
-      "SELECT id, name, role FROM login WHERE status = 'Y'",
+      "SELECT id, name, role FROM tbl_users WHERE status = 'Y'",
     );
     res.json({ users: rows });
   } catch (error) {
@@ -80,7 +80,7 @@ export const getAllAttendances = async (req: Request, res: Response) => {
               a.attendanceStatus, a.leaveStatus, a.leaveReason,
               a.workingHours, DAYNAME(a.date) AS day, a.status
        FROM attendance a
-       JOIN login u ON a.userId = u.id
+       JOIN tbl_users u ON a.userId = u.id
        WHERE a.status = 'Y'
        ORDER BY a.date ASC, a.id ASC`,
     );
@@ -119,7 +119,7 @@ export const getMyAttendances = async (
           DAYNAME(a.date) AS day,
           a.status
        FROM attendance a
-       JOIN login u ON a.userId = u.id
+       JOIN tbl_users u ON a.userId = u.id
        WHERE a.userId = ? AND a.status = 'Y'
        ORDER BY a.date ASC, a.id ASC`,
       [userId],

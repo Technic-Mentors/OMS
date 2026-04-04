@@ -16,48 +16,39 @@ interface EmployeeLifeLineRow extends RowDataPacket {
   current_designation: string;
 }
 
-export const getResignations = async (
-  req: AuthenticatedRequest,
-  res: Response,
-) => {
+export const getResignations = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const [rows] = await pool.query<ResignationRow[]>(
-      `SELECT r.id, l.name AS employee_name, r.designation, DATE_FORMAT(r.resignation_date, '%Y-%m-%d') AS resignation_date, r.note, r.approval_status
+      `SELECT r.id, l.name AS employee_name, r.designation, 
+              DATE_FORMAT(r.resignation_date, '%Y-%m-%d') AS resignation_date, 
+              r.note, r.approval_status
        FROM resignation r
-       JOIN login l ON r.employee_id = l.id
+       JOIN tbl_users l ON r.employee_id = l.id
+       WHERE r.is_deleted = 0  -- Added this line
        ORDER BY r.id DESC`,
     );
-
     res.json(rows);
   } catch (error) {
-    console.error(error);
     res.status(500).json({ message: "Failed to fetch resignations" });
   }
 };
 
-export const getMyResignations = async (
-  req: AuthenticatedRequest,
-  res: Response,
-): Promise<void> => {
-  if (!req.user) {
-    res.status(401).json({ message: "Unauthorized" });
-    return;
-  }
 
+
+export const getMyResignations = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  if (!req.user) { res.status(401).json({ message: "Unauthorized" }); return; }
   const userId = req.user.id;
 
   try {
     const [rows] = await pool.query<ResignationRow[]>(
-      `SELECT r.id, l.name AS employee_name, r.designation, r.resignation_date AS resignation_date, r.note, r.approval_status
+      `SELECT r.id, l.name AS employee_name, r.designation, r.resignation_date, r.note, r.approval_status
        FROM resignation r
-       JOIN login l ON r.employee_id = l.id
-       WHERE r.employee_id = ?`,
+       JOIN tbl_users l ON r.employee_id = l.id
+       WHERE r.employee_id = ? AND r.is_deleted = 0`, // Added is_deleted filter
       [userId],
     );
-
     res.json(rows);
   } catch (error) {
-    console.error(error);
     res.status(500).json({ message: "Failed to fetch your resignations" });
   }
 };
@@ -74,7 +65,7 @@ export const addResignation = async (
   }
 
   const [userRows]: any = await pool.query(
-    "SELECT date FROM login WHERE id = ?",
+    "SELECT date FROM tbl_users WHERE id = ?",
     [id],
   );
 
@@ -138,7 +129,7 @@ export const updateResignation = async (
   }
 
   const [userRows]: any = await pool.query(
-    "SELECT date FROM login WHERE id = ?",
+    "SELECT date FROM tbl_users WHERE id = ?",
     [id],
   );
 
@@ -177,7 +168,7 @@ export const updateResignation = async (
 
       if (resignation?.employee_id) {
         await connection.query(
-          `UPDATE login SET loginStatus = 'N' WHERE id = ?`,
+          `UPDATE tbl_users SET loginStatus = 'N' WHERE id = ?`,
           [resignation.employee_id],
         );
       }
@@ -200,17 +191,17 @@ export const updateResignation = async (
   }
 };
 
-export const deleteResignation = async (
-  req: Request,
-  res: Response,
-): Promise<void> => {
+
+export const deleteResignation = async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
 
   try {
-    await pool.query<ResultSetHeader>(`DELETE FROM resignation WHERE id = ?`, [
-      id,
-    ]);
-    res.json({ message: "Resignation deleted successfully" });
+    // We update the flag instead of removing the row
+    await pool.query<ResultSetHeader>(
+      `UPDATE resignation SET is_deleted = 1 WHERE id = ?`, 
+      [id]
+    );
+    res.json({ message: "Resignation moved to trash successfully" });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Failed to delete resignation" });

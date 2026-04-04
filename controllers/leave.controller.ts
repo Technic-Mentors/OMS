@@ -15,19 +15,19 @@ export const getUsersLeaves = async (req: RequestWithUser, res: Response) => {
     const search = (req.query.search as string) || "";
 
     const query = `
-      SELECT 
-        l.id,
-        l.leaveSubject,
-        l.leaveReason,
-        DATE_FORMAT(l.fromDate, '%Y-%m-%d') AS fromDate,
-        DATE_FORMAT(l.toDate, '%Y-%m-%d') AS toDate,
-        l.leaveStatus,
-        u.name
-      FROM leaves l
-      JOIN login u ON u.id = l.userId
-      WHERE u.name LIKE ?
-      ORDER BY l.id ASC
-    `;
+  SELECT 
+    l.id,
+    l.leaveSubject,
+    l.leaveReason,
+    DATE_FORMAT(l.fromDate, '%Y-%m-%d') AS fromDate,
+    DATE_FORMAT(l.toDate, '%Y-%m-%d') AS toDate,
+    l.leaveStatus,
+    u.name
+  FROM leaves l
+  JOIN tbl_users u ON u.id = l.userId
+  WHERE u.name LIKE ? AND l.status = 'Y'  -- Added status check
+  ORDER BY l.id ASC
+`;
 
     const [rows] = await pool.query<RowDataPacket[]>(query, [`%${search}%`]);
     res.json(rows);
@@ -45,20 +45,19 @@ export const getMyLeaves = async (req: RequestWithUser, res: Response) => {
     const search = (req.query.search as string) || "";
 
     const query = `
-      SELECT 
-        l.id,
-        l.leaveSubject,
-        l.leaveReason,
-        DATE_FORMAT(l.fromDate, '%Y-%m-%d') AS fromDate,
-        DATE_FORMAT(l.toDate, '%Y-%m-%d') AS toDate,
-
-        l.leaveStatus,
-        u.name
-      FROM leaves l
-      JOIN login u ON u.id = l.userId
-      WHERE u.id = ? AND l.leaveSubject LIKE ?
-      ORDER BY l.id ASC
-    `;
+  SELECT 
+    l.id,
+    l.leaveSubject,
+    l.leaveReason,
+    DATE_FORMAT(l.fromDate, '%Y-%m-%d') AS fromDate,
+    DATE_FORMAT(l.toDate, '%Y-%m-%d') AS toDate,
+    l.leaveStatus,
+    u.name
+  FROM leaves l
+  JOIN tbl_users u ON u.id = l.userId
+  WHERE u.id = ? AND l.leaveSubject LIKE ? AND l.status = 'Y' -- Added status check
+  ORDER BY l.id ASC
+`;
 
     const [rows] = await pool.query<RowDataPacket[]>(query, [
       userId,
@@ -77,7 +76,7 @@ export const getAllUsers = async (
 ): Promise<void> => {
   try {
     const [rows] = await pool.query<RowDataPacket[]>(
-      "SELECT id, name, role FROM login",
+      "SELECT id, name, role FROM tbl_users",
     );
     res.json({ users: rows });
   } catch (error) {
@@ -143,7 +142,7 @@ export const addLeave = async (req: RequestWithUser, res: Response) => {
     }
 
     const [userRows] = await pool.query<RowDataPacket[]>(
-      "SELECT date FROM login WHERE id = ?",
+      "SELECT date FROM tbl_users WHERE id = ?",
       [userId],
     );
 
@@ -252,7 +251,7 @@ export const deleteLeave = async (req: RequestWithUser, res: Response) => {
 
     const [rows] = await pool.query<RowDataPacket[]>(
       "SELECT userId FROM leaves WHERE id = ?",
-      [leaveId],
+      [leaveId]
     );
 
     if (rows.length === 0) {
@@ -265,7 +264,8 @@ export const deleteLeave = async (req: RequestWithUser, res: Response) => {
       return res.status(403).json({ message: "Forbidden" });
     }
 
-    await pool.query("DELETE FROM leaves WHERE id = ?", [leaveId]);
+    // SOFT DELETE: Update status to 'N' instead of deleting
+    await pool.query("UPDATE leaves SET status = 'N' WHERE id = ?", [leaveId]);
 
     return res.status(200).json({ message: "Leave deleted successfully" });
   } catch (error) {

@@ -29,7 +29,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 
     // ✅ SINGLE TABLE LOGIN
     const [users]: any = await pool.query(
-      "SELECT * FROM login WHERE LOWER(email) = ?",
+      "SELECT * FROM tbl_users WHERE LOWER(email) = ?",
       [lowerEmail]
     );
 
@@ -50,7 +50,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     if (!storedPassword.startsWith("$2b$")) {
       const hashedPassword = await bcrypt.hash(storedPassword, saltRounds);
 
-      await pool.query("UPDATE login SET password = ? WHERE email = ?", [
+      await pool.query("UPDATE tbl_users SET password = ? WHERE email = ?", [
         hashedPassword,
         lowerEmail,
       ]);
@@ -162,7 +162,7 @@ export const changePassword = async (
     }
 
     const [users]: any = await pool.query(
-      "SELECT * FROM login WHERE id = ?",
+      "SELECT * FROM tbl_users WHERE id = ?",
       [id]
     );
 
@@ -184,7 +184,7 @@ export const changePassword = async (
 
     const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
 
-    await pool.query("UPDATE login SET password = ? WHERE id = ?", [
+    await pool.query("UPDATE tbl_users SET password = ? WHERE id = ?", [
       hashedPassword,
       id,
     ]);
@@ -225,7 +225,7 @@ export const confirmPassword = async (
     }
 
     const [users]: any = await pool.query(
-      "SELECT id FROM login WHERE id = ?",
+      "SELECT id FROM tbl_users WHERE id = ?",
       [id]
     );
 
@@ -238,7 +238,7 @@ export const confirmPassword = async (
 
     const hashedPassword = await bcrypt.hash(password, saltRounds);
 
-    await pool.query("UPDATE login SET password = ? WHERE id = ?", [
+    await pool.query("UPDATE tbl_users SET password = ? WHERE id = ?", [
       hashedPassword,
       id,
     ]);
