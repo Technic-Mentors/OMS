@@ -78,63 +78,75 @@ export const createOvertimeConfig = async (
   }
 };
 
-// export const updateOvertimeConfig = async (req: Request, res: Response) => {
-//   try {
-//     const { id } = req.params;
-//     const { overtimeType, amount } = req.body;
+export const updateOvertimeConfig = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const { overtimeType, amount } = req.body;
 
-//     if (!overtimeType || !amount) {
-//       return res.status(400).json({
-//         success: false,
-//         message: "All fields are required",
-//       });
-//     }
+    if (!overtimeType || !amount) {
+      res.status(400).json({
+        success: false,
+        message: "All fields are required",
+      });
+      return;
+    }
 
-//     const [existing] = await pool.query<RowDataPacket[]>(
-//       "SELECT id FROM overtime_config WHERE overtimeType = ? AND id != ?",
-//       [overtimeType, id]
-//     );
+    const [existing] = await pool.query<RowDataPacket[]>(
+      "SELECT id FROM overtime_config WHERE overtimeType = ? AND id != ?",
+      [overtimeType, id],
+    );
 
-//     if (existing.length > 0) {
-//       return res.status(400).json({
-//         success: false,
-//         message: "Overtime type already exists",
-//       });
-//     }
+    if (existing.length > 0) {
+      res.status(400).json({
+        success: false,
+        message: "Overtime type already exists",
+      });
+      return;
+    }
 
-//     await pool.query(
-//       "UPDATE overtime_config SET overtimeType = ?, amount = ? WHERE id = ?",
-//       [overtimeType, amount, id]
-//     );
+    await pool.query(
+      "UPDATE overtime_config SET overtimeType = ?, amount = ? WHERE id = ?",
+      [overtimeType, amount, id],
+    );
 
-//     return res.status(200).json({
-//       success: true,
-//       message: "Overtime config updated successfully",
-//     });
-//   } catch (error) {
-//     console.error("Update Overtime Error:", error);
-//     return res.status(500).json({
-//       success: false,
-//       message: "Failed to update overtime config",
-//     });
-//   }
-// };
+    res.status(200).json({
+      success: true,
+      message: "Overtime config updated successfully",
+    });
+    return;
+  } catch (error) {
+    console.error("Update Overtime Error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to update overtime config",
+    });
+    return;
+  }
+};
 
-// export const deleteOvertimeConfig = async (req: Request, res: Response) => {
-//   try {
-//     const { id } = req.params;
+export const deleteOvertimeConfig = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  try {
+    const { id } = req.params;
 
-//     await pool.query("DELETE FROM overtime_config WHERE id = ?", [id]);
+    await pool.query("DELETE FROM overtime_config WHERE id = ?", [id]);
 
-//     return res.status(200).json({
-//       success: true,
-//       message: "Overtime config deleted successfully",
-//     });
-//   } catch (error) {
-//     console.error("Delete Overtime Error:", error);
-//     return res.status(500).json({
-//       success: false,
-//       message: "Failed to delete overtime config",
-//     });
-//   }
-// };
+    res.status(200).json({
+      success: true,
+      message: "Overtime config deleted successfully",
+    });
+    return;
+  } catch (error) {
+    console.error("Delete Overtime Error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to delete overtime config",
+    });
+    return;
+  }
+};
