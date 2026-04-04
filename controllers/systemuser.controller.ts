@@ -227,21 +227,24 @@ export const updateSystemUser = async (
 };
 
 // ================= DELETE USER =================
+// ================= SOFT DELETE USER =================
 export const deleteUser = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
-    const [result]: any = await pool.query("DELETE FROM login WHERE id=?", [
-      id,
-    ]);
+    const [result]: any = await pool.query(
+      `UPDATE login SET status = 'Inactive' WHERE id = ?`,
+      [id],
+    );
 
     if (result.affectedRows === 0) {
       res.status(404).json({ message: "User not found" });
       return;
     }
 
-    res.json({ message: "User deleted successfully" });
+    res.json({ message: "User deactivated successfully" });
   } catch (error) {
+    console.error("Soft Delete Error:", error);
     res.status(500).json({ message: "Internal Server Error" });
   }
 };
