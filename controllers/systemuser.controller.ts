@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import pool from "../database/db";
 import bcrypt from "bcryptjs";
+import { uploadToCloudinary } from "../utils/cloudinary";
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -20,6 +21,7 @@ export const getSytemUsers = async (req: Request, res: Response) => {
         roleId,
         role,
         status,
+        image,
         created_at,
         updated_at
       FROM login
@@ -55,7 +57,7 @@ export const addSystemUser = async (
 
     if (!name || !email || !password || !roleId || !role) {
       res.status(400).json({
-        message: "Required fields (including Role) are missing",
+        message: "Required fields are missing",
       });
       return;
     }
@@ -73,22 +75,53 @@ export const addSystemUser = async (
       return;
     }
 
-    const [existingUsers]: any = await pool.query(
-      `SELECT email FROM login WHERE LOWER(email) = LOWER(?)`,
+    // ✅ DUPLICATE CHECK
+    const [existing]: any = await pool.query(
+      `SELECT id FROM login WHERE LOWER(email)=LOWER(?)`,
       [email],
     );
 
-    if (existingUsers.length > 0) {
+    if (existing.length > 0) {
       res.status(400).json({ message: "Email already exists!" });
       return;
     }
 
+    // ================= IMAGE UPLOAD =================
+    let imageUrl: string | null = null;
+
+    if (req.file) {
+      const file: any = req.file;
+
+      if (!file.mimetype.startsWith("image/")) {
+        res.status(400).json({ message: "File must be an image" });
+        return;
+      }
+
+      if (file.size > 5 * 1024 * 1024) {
+        res.status(400).json({ message: "Image must be < 5MB" });
+        return;
+      }
+
+      try {
+        const result = await uploadToCloudinary(
+          file.buffer,
+          "oms_system_users",
+        );
+        imageUrl = result.secure_url;
+      } catch (err) {
+        console.error("Cloudinary Error:", err);
+        res.status(500).json({ message: "Image upload failed" });
+        return;
+      }
+    }
+
+    // ================= INSERT =================
     const hashedPassword = await bcrypt.hash(password, 10);
 
     await pool.query(
       `INSERT INTO login 
-      (name, cnic, contact, email, password, roleId, role, status)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      (name, cnic, contact, email, password, roleId, role, status, image)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         name,
         cnic || null,
@@ -98,10 +131,14 @@ export const addSystemUser = async (
         roleId,
         role,
         status || "Active",
+        imageUrl,
       ],
     );
 
-    res.status(201).json({ message: "User added successfully" });
+    res.status(201).json({
+      message: "User added successfully",
+      image: imageUrl,
+    });
   } catch (error) {
     console.error("Add User Error:", error);
     res.status(500).json({ message: "Internal Server Error" });
@@ -115,38 +152,74 @@ export const updateSystemUser = async (
 ): Promise<void> => {
   try {
     const { id } = req.params;
-    let { name, cnic, contact, email, roleId, role, status, password } =
-      req.body;
+    let { name, cnic, contact, email, roleId, role, status } = req.body;
 
-    let query = `UPDATE login SET name=?, cnic=?, contact=?, email=?, roleId=?, role=?, status=?`;
+    const [userRows]: any = await pool.query("SELECT * FROM login WHERE id=?", [
+      id,
+    ]);
 
-    const values: any[] = [
-      name,
-      cnic || null,
-      contact || null,
-      email,
-      roleId,
-      role,
-      status || "Active",
-    ];
-
-    if (password) {
-      const hashedPassword = await bcrypt.hash(password, 10);
-      query += `, password=?`;
-      values.push(hashedPassword);
-    }
-
-    query += ` WHERE id=?`;
-    values.push(id);
-
-    const [result]: any = await pool.query(query, values);
-
-    if (result.affectedRows === 0) {
+    if (userRows.length === 0) {
       res.status(404).json({ message: "User not found" });
       return;
     }
 
-    res.json({ message: "User updated successfully" });
+    // ================= IMAGE UPDATE =================
+    let imageUrl = userRows[0].image;
+
+    if (req.file) {
+      const file: any = req.file;
+
+      if (!file.mimetype.startsWith("image/")) {
+        res.status(400).json({ message: "Invalid image file" });
+        return;
+      }
+
+      if (file.size > 5 * 1024 * 1024) {
+        res.status(400).json({ message: "Image must be < 5MB" });
+        return;
+      }
+
+      try {
+        const result = await uploadToCloudinary(
+          file.buffer,
+          "oms_system_users",
+        );
+        imageUrl = result.secure_url;
+      } catch (err) {
+        res.status(500).json({ message: "Image upload failed" });
+        return;
+      }
+    }
+
+    // ================= UPDATE =================
+    await pool.query(
+      `UPDATE login SET 
+        name=?,
+        cnic=?,
+        contact=?,
+        email=?,
+        roleId=?,
+        role=?,
+        status=?,
+        image=?
+      WHERE id=?`,
+      [
+        name,
+        cnic || null,
+        contact || null,
+        email,
+        roleId,
+        role,
+        status || "Active",
+        imageUrl,
+        id,
+      ],
+    );
+
+    res.json({
+      message: "User updated successfully",
+      image: imageUrl,
+    });
   } catch (error) {
     console.error("Update User Error:", error);
     res.status(500).json({ message: "Internal Server Error" });
