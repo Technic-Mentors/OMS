@@ -13,21 +13,22 @@ export const getSytemUsers = async (req: Request, res: Response) => {
   try {
     const [users]: any = await pool.query(`
       SELECT 
-        id,
-        name,
-        contact,
-        cnic,
-        email,
-        roleId,
-        role,
-        status,
-        image,
-        created_at,
-        updated_at
-      FROM tbl_users
-      WHERE LOWER(role) != 'user'
-      AND status != 'Inactive'
-      ORDER BY id ASC
+        u.id,
+        u.name,
+        u.contact,
+        u.cnic,
+        u.email,
+        u.roleId,
+        r.roleName AS role,
+        u.status,
+        u.image,
+        u.created_at,
+        u.updated_at
+      FROM tbl_users u
+      LEFT JOIN roles r ON u.roleId = r.id 
+      WHERE LOWER(r.roleName) != 'user'
+      AND u.status != 'Inactive'
+      ORDER BY u.id ASC
     `);
 
     res.json({ users });

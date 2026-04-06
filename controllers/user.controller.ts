@@ -10,7 +10,9 @@ export const getAllUsers = async (
   res: Response,
 ): Promise<void> => {
   try {
-    const [rows]: any = await pool.query("SELECT * FROM tbl_users WHERE LOWER(role) = 'user'");
+    const [rows]: any = await pool.query(
+      "SELECT * FROM tbl_users WHERE LOWER(role) = 'user'",
+    );
     res.json({ users: rows });
   } catch (error) {
     console.error("Error fetching users:", error);
@@ -97,7 +99,13 @@ export const addUser = async (req: Request, res: Response): Promise<void> => {
     `;
 
     const values = [
-      name.charAt(0).toUpperCase() + name.slice(1).toLowerCase(),
+      // Capitalize every word in the name
+      name
+        .split(" ")
+        .map(
+          (w: string) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase(),
+        )
+        .join(" "),
       email.toLowerCase(),
       await bcrypt.hash(password, 10),
       contact,
@@ -144,7 +152,15 @@ export const updateUser = async (
       return;
     }
 
-    if (name) name = name.charAt(0).toUpperCase() + name.slice(1);
+    if (name) {
+      name = name
+        .split(" ")
+        .map(
+          (w: string) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase(),
+        )
+        .join(" ");
+    }
+
     if (email) email = email.toLowerCase();
 
     // Check for duplicates (excluding current user)
