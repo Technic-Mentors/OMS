@@ -16,7 +16,10 @@ interface EmployeeLifeLineRow extends RowDataPacket {
   current_designation: string;
 }
 
-export const getResignations = async (req: AuthenticatedRequest, res: Response) => {
+export const getResignations = async (
+  req: AuthenticatedRequest,
+  res: Response,
+) => {
   try {
     const [rows] = await pool.query<ResignationRow[]>(
       `SELECT r.id, l.name AS employee_name, r.designation, 
@@ -33,10 +36,14 @@ export const getResignations = async (req: AuthenticatedRequest, res: Response) 
   }
 };
 
-
-
-export const getMyResignations = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
-  if (!req.user) { res.status(401).json({ message: "Unauthorized" }); return; }
+export const getMyResignations = async (
+  req: AuthenticatedRequest,
+  res: Response,
+): Promise<void> => {
+  if (!req.user) {
+    res.status(401).json({ message: "Unauthorized" });
+    return;
+  }
   const userId = req.user.id;
 
   try {
@@ -168,7 +175,7 @@ export const updateResignation = async (
 
       if (resignation?.employee_id) {
         await connection.query(
-          `UPDATE tbl_users SET loginStatus = 'N' WHERE id = ?`,
+          `UPDATE tbl_users SET loginStatus = 'N', status = 'Inactive' WHERE id = ?`,
           [resignation.employee_id],
         );
       }
@@ -191,15 +198,17 @@ export const updateResignation = async (
   }
 };
 
-
-export const deleteResignation = async (req: Request, res: Response): Promise<void> => {
+export const deleteResignation = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
   const { id } = req.params;
 
   try {
     // We update the flag instead of removing the row
     await pool.query<ResultSetHeader>(
-      `UPDATE resignation SET is_deleted = 1 WHERE id = ?`, 
-      [id]
+      `UPDATE resignation SET is_deleted = 1 WHERE id = ?`,
+      [id],
     );
     res.json({ message: "Resignation moved to trash successfully" });
   } catch (error) {
@@ -230,7 +239,6 @@ export const getEmployeeLifeLine = async (
     res.status(500).json({ message: "Failed to fetch employee designation" });
   }
 };
-
 
 export const getMyLifeLine = async (
   req: AuthenticatedRequest,

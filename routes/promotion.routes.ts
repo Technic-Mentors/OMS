@@ -20,6 +20,8 @@ router.put("/admin/updatePromotion/:id", authenticateToken, isAdmin, updatePromo
 router.get("/admin/getEmployeeLifeLine", authenticateToken, isAdmin, getEmployeeLifeLine);
 router.put("/user/updatePromotion/:id", authenticateToken, updatePromotion);
 router.patch("/user/deletePromotion/:id", authenticateToken,  deletePromotion);
+router.patch("/admin/deletePromotion/:id", authenticateToken,  deletePromotion);
+
 
 
 export default router;

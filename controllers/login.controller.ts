@@ -6,8 +6,7 @@ import bcrypt from "bcryptjs";
 const CLOUDINARY_BASE_URL =
   "https://res.cloudinary.com/dnzo0rrk5/image/upload/v1773908483/oms_users/user_1775044832575_729.jpg";
 
-const DEFAULT_AVATAR =
-  "https://cdn-icons-png.flaticon.com/128/924/924874.png";
+const DEFAULT_AVATAR = "https://cdn-icons-png.flaticon.com/128/924/924874.png";
 
 const saltRounds = 10;
 const SECRET_KEY = "your_secret_key";
@@ -30,7 +29,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     // ✅ SINGLE TABLE LOGIN
     const [users]: any = await pool.query(
       "SELECT * FROM tbl_users WHERE LOWER(email) = ?",
-      [lowerEmail]
+      [lowerEmail],
     );
 
     if (users.length === 0) {
@@ -69,7 +68,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     }
 
     // CHECK STATUS
-    if (user.status && user.status !== "Active") {
+    if (user.loginStatus !== "Y" || user.status !== "Active") {
       res.status(403).json({
         status: 403,
         message: "Your account is inactive. Contact admin.",
@@ -86,7 +85,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
          FROM access_control ac 
          JOIN modules m ON ac.moduleId = m.id 
          WHERE ac.roleId = ? AND ac.status = 1`,
-        [user.roleId]
+        [user.roleId],
       );
 
       allowedModules = permissions.map((p: any) => p.moduleName);
@@ -100,7 +99,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
         role: user.role,
       },
       SECRET_KEY,
-      { expiresIn: "1d" }
+      { expiresIn: "1d" },
     );
 
     // IMAGE LOGIC
@@ -141,7 +140,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 // ================= CHANGE PASSWORD =================
 export const changePassword = async (
   req: Request<any>,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     const { id } = req.params;
@@ -163,7 +162,7 @@ export const changePassword = async (
 
     const [users]: any = await pool.query(
       "SELECT * FROM tbl_users WHERE id = ?",
-      [id]
+      [id],
     );
 
     if (!users.length) {
@@ -204,7 +203,7 @@ export const changePassword = async (
 // ================= CONFIRM PASSWORD =================
 export const confirmPassword = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     const { id } = req.params;
@@ -226,7 +225,7 @@ export const confirmPassword = async (
 
     const [users]: any = await pool.query(
       "SELECT id FROM tbl_users WHERE id = ?",
-      [id]
+      [id],
     );
 
     if (!users.length) {
