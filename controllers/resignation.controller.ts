@@ -117,11 +117,92 @@ export const addResignation = async (
   }
 };
 
+// export const updateResignation = async (
+//   req: Request,
+//   res: Response,
+// ): Promise<void> => {
+//   const { id } = req.params;
+//   let { designation, note, resignation_date, approval_status } = req.body;
+
+//   const ALLOWED_STATUSES = ["PENDING", "ACCEPTED", "REJECTED"];
+
+//   if (!ALLOWED_STATUSES.includes(approval_status)) {
+//     approval_status = "PENDING";
+//   }
+
+//   if (!designation || !note || !resignation_date) {
+//     res.status(400).json({ message: "All fields are required" });
+//     return;
+//   }
+
+//   const [userRows]: any = await pool.query(
+//     "SELECT date FROM tbl_users WHERE id = ?",
+//     [id],
+//   );
+
+//   if (userRows.length === 0) {
+//     res.status(404).json({ message: "Employee not found" });
+//     return;
+//   }
+
+//   const joiningDate = new Date(userRows[0].date);
+//   const selectedResignationDate = new Date(resignation_date);
+
+//   if (selectedResignationDate < joiningDate) {
+//     res.status(400).json({
+//       message: `Resignation date cannot be before joining date (${userRows[0].date})`,
+//     });
+//     return;
+//   }
+
+//   const connection = await pool.getConnection();
+
+//   try {
+//     await connection.beginTransaction();
+
+//     await connection.query<ResultSetHeader>(
+//       `UPDATE resignation
+//        SET designation = ?, note = ?, resignation_date = ?, approval_status = ?
+//        WHERE id = ?`,
+//       [designation, note, resignation_date, approval_status, id],
+//     );
+
+//     if (approval_status === "ACCEPTED") {
+//       const [[resignation]]: any = await connection.query(
+//         `SELECT employee_id FROM resignation WHERE id = ?`,
+//         [id],
+//       );
+
+//       if (resignation?.employee_id) {
+//         await connection.query(
+//           `UPDATE tbl_users SET loginStatus = 'N', status = 'Inactive' WHERE id = ?`,
+//           [resignation.employee_id],
+//         );
+//       }
+//     }
+
+//     await connection.commit();
+
+//     res.json({
+//       message:
+//         approval_status === "ACCEPTED"
+//           ? "Resignation accepted and user deactivated"
+//           : "Resignation updated successfully",
+//     });
+//   } catch (error) {
+//     await connection.rollback();
+//     console.error(error);
+//     res.status(500).json({ message: "Failed to update resignation" });
+//   } finally {
+//     connection.release();
+//   }
+// };
+
 export const updateResignation = async (
   req: Request,
   res: Response,
 ): Promise<void> => {
-  const { id } = req.params;
+  const { id } = req.params; // resignation ID
   let { designation, note, resignation_date, approval_status } = req.body;
 
   const ALLOWED_STATUSES = ["PENDING", "ACCEPTED", "REJECTED"];
@@ -135,50 +216,64 @@ export const updateResignation = async (
     return;
   }
 
-  const [userRows]: any = await pool.query(
-    "SELECT date FROM tbl_users WHERE id = ?",
-    [id],
-  );
-
-  if (userRows.length === 0) {
-    res.status(404).json({ message: "Employee not found" });
-    return;
-  }
-
-  const joiningDate = new Date(userRows[0].date);
-  const selectedResignationDate = new Date(resignation_date);
-
-  if (selectedResignationDate < joiningDate) {
-    res.status(400).json({
-      message: `Resignation date cannot be before joining date (${userRows[0].date})`,
-    });
-    return;
-  }
-
   const connection = await pool.getConnection();
 
   try {
     await connection.beginTransaction();
 
-    await connection.query<ResultSetHeader>(
+    // ✅ STEP 1: Get resignation first (IMPORTANT FIX)
+    const [[resignation]]: any = await connection.query(
+      `SELECT employee_id FROM resignation WHERE id = ?`,
+      [id],
+    );
+
+    if (!resignation) {
+      await connection.rollback();
+      res.status(404).json({ message: "Resignation not found" });
+      return;
+    }
+
+    const employeeId = resignation.employee_id;
+
+    // ✅ STEP 2: Validate employee
+    const [userRows]: any = await connection.query(
+      "SELECT date FROM tbl_users WHERE id = ?",
+      [employeeId],
+    );
+
+    if (userRows.length === 0) {
+      await connection.rollback();
+      res.status(404).json({ message: "Employee not found" });
+      return;
+    }
+
+    const joiningDate = new Date(userRows[0].date);
+    const selectedResignationDate = new Date(resignation_date);
+
+    if (selectedResignationDate < joiningDate) {
+      await connection.rollback();
+      res.status(400).json({
+        message: `Resignation date cannot be before joining date (${userRows[0].date})`,
+      });
+      return;
+    }
+
+    // ✅ STEP 3: Update resignation
+    await connection.query(
       `UPDATE resignation
        SET designation = ?, note = ?, resignation_date = ?, approval_status = ?
        WHERE id = ?`,
       [designation, note, resignation_date, approval_status, id],
     );
 
+    // ✅ STEP 4: If accepted → deactivate user
     if (approval_status === "ACCEPTED") {
-      const [[resignation]]: any = await connection.query(
-        `SELECT employee_id FROM resignation WHERE id = ?`,
-        [id],
+      await connection.query(
+        `UPDATE tbl_users
+         SET loginStatus = 'N', status = 'Inactive'
+         WHERE id = ?`,
+        [employeeId],
       );
-
-      if (resignation?.employee_id) {
-        await connection.query(
-          `UPDATE tbl_users SET loginStatus = 'N', status = 'Inactive' WHERE id = ?`,
-          [resignation.employee_id],
-        );
-      }
     }
 
     await connection.commit();
