@@ -123,11 +123,27 @@ export const updateProject = async (
       return;
     }
 
-    if (new Date(startDate) > new Date(endDate)) {
-      res
-        .status(400)
-        .json({ message: "Start date cannot be greater than end date" });
-      return;
+    let safeEndDate = endDate ? endDate : null;
+
+    // 👉 enforce rule based on status
+    if (completionStatus === "New" || completionStatus === "Working") {
+      safeEndDate = null;
+    }
+
+    if (completionStatus === "Completed") {
+      if (!endDate) {
+        res
+          .status(400)
+          .json({ message: "End date is required for completed projects" });
+        return;
+      }
+
+      if (new Date(startDate) > new Date(endDate)) {
+        res.status(400).json({
+          message: "Start date cannot be greater than end date",
+        });
+        return;
+      }
     }
 
     const trimmedName = projectName.trim();
@@ -152,7 +168,7 @@ export const updateProject = async (
       return;
     }
 
-    const isOnGoing = endDate ? 0 : 1;
+    const isOnGoing = safeEndDate ? 0 : 1;
 
     await pool.query(
       `
@@ -172,7 +188,7 @@ export const updateProject = async (
         trimmedCategory,
         description,
         startDate,
-        endDate,
+        safeEndDate, // ✅ important
         completionStatus,
         isOnGoing,
         id,
