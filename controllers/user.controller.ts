@@ -143,6 +143,21 @@ export const updateUser = async (
       return;
     }
 
+    // ✅ Validate contact (if provided)
+    if (contact && !/^\d{11}$/.test(contact)) {
+      res.status(400).json({ message: "Contact must be exactly 11 digits" });
+      return;
+    }
+
+    // ✅ Validate CNIC (13 digits ignoring dashes)
+    if (cnic) {
+      const digits = cnic.replace(/\D/g, "");
+      if (digits.length !== 13) {
+        res.status(400).json({ message: "CNIC must be exactly 13 digits" });
+        return;
+      }
+    }
+
     const [userRows]: any = await pool.query(
       "SELECT * FROM tbl_users WHERE id = ?",
       [userId],

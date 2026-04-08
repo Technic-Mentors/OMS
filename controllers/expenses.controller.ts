@@ -79,6 +79,8 @@ export const addExpense = async (
 ): Promise<void> => {
   const { expenseName, expenseCategoryId, addedBy, date, amount } = req.body;
 
+ 
+
   const formattedDate = new Date(date).toLocaleDateString("sv-SE");
 
   try {
@@ -117,6 +119,8 @@ export const updateExpense = async (
   const { id } = req.params;
   const { expenseName, expenseCategoryId, amount, addedBy, date } = req.body;
 
+ 
+
   const formattedDate = new Date(date).toISOString().split("T")[0];
 
   try {
@@ -143,7 +147,7 @@ export const updateExpense = async (
           date = ?
       WHERE id = ?
       `,
-      [expenseName, expenseCategoryId, amount, formattedDate, addedBy, id],
+      [expenseName, expenseCategoryId, amount, addedBy, formattedDate, id],
     );
 
     res.status(200).json({ message: "Expense updated successfully" });

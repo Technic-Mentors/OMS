@@ -14,6 +14,7 @@ export const getAllProjects = async (
         projectCategory,
         description,
         completionStatus,
+        isOnGoing,
         DATE_FORMAT(startDate, '%Y-%m-%d') as startDate,
         DATE_FORMAT(endDate, '%Y-%m-%d') as endDate
       FROM projects
@@ -43,12 +44,14 @@ export const addProject = async (
       completionStatus,
     } = req.body;
 
-    if (!projectName || !projectCategory || !startDate || !endDate) {
+    const safeEndDate = endDate ? endDate : null;
+
+    if (!projectName || !projectCategory || !startDate) {
       res.status(400).json({ message: "Required fields are missing" });
       return;
     }
 
-    if (new Date(startDate) > new Date(endDate)) {
+    if (endDate && new Date(startDate) > new Date(endDate)) {
       res
         .status(400)
         .json({ message: "Start date cannot be greater than end date" });
@@ -78,17 +81,18 @@ export const addProject = async (
 
     await pool.query(
       `
-      INSERT INTO projects 
-      (projectName, projectCategory, description, startDate, endDate, projectStatus, completionStatus)
-      VALUES (?, ?, ?, ?, ?, 'Y', ?)
-      `,
+  INSERT INTO projects 
+  (projectName, projectCategory, description, startDate, endDate, projectStatus, completionStatus , isOnGoing)
+  VALUES (?, ?, ?, ?, ?, 'Y', ?, ?)
+  `,
       [
         trimmedName,
         trimmedCategory,
         description,
         startDate,
-        endDate,
+        safeEndDate, // ✅ important
         completionStatus,
+        endDate ? 0 : 1 
       ],
     );
 
@@ -163,7 +167,8 @@ export const updateProject = async (
         description = ?,
         startDate = ?,
         endDate = ?,
-        completionStatus = ?
+        completionStatus = ?,
+        isOnGoing = ?
       WHERE id = ?
       `,
       [
@@ -171,7 +176,7 @@ export const updateProject = async (
         trimmedCategory,
         description,
         startDate,
-        endDate,
+        endDate ? 0 : 1,
         completionStatus,
         id,
       ],

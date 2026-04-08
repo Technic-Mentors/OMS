@@ -189,7 +189,7 @@ export const addAttendance = async (
     if (existing.length > 0) {
       res.status(400).json({
         success: false,
-        message: "Attendance already exists for this date",
+        message: "Attendance already exists for this date of this Employee",
       });
       return;
     }
@@ -197,6 +197,11 @@ export const addAttendance = async (
     // 4. Status Determination
     let finalStatus = manualStatus.toLowerCase();
     let workingHours = null;
+
+    // Calculate working hours for all valid cases
+    if (clockIn && clockOut) {
+      workingHours = calculateWorkingHours(clockIn, clockOut);
+    }
 
     if (finalStatus === "present") {
       if (!clockIn || !clockOut) {
@@ -207,11 +212,12 @@ export const addAttendance = async (
         return;
       }
 
-      workingHours = calculateWorkingHours(clockIn, clockOut);
-
-      // Apply rules for Late/Absent based on clockIn
-      if (rule.lateTime && clockIn >= rule.lateTime) finalStatus = "late";
-      if (rule.halfLeave && clockIn >= rule.halfLeave) finalStatus = "absent";
+      // Auto override
+      if (rule.halfLeave && clockIn >= rule.halfLeave) {
+        finalStatus = "half leave";
+      } else if (rule.lateTime && clockIn >= rule.lateTime) {
+        finalStatus = "late";
+      }
     }
 
     // 5. Insert (Explicitly handling potential NULLs for Live Server Strict Mode)
@@ -263,17 +269,28 @@ export const updateAttendance = async (
 
   try {
     const formattedDate = toMySQLDate(date);
-    const workingHours = calculateWorkingHours(clockIn, clockOut);
 
-    let finalStatus = reqStatus;
+    const rule = await getAttendanceRule();
+
+    let finalStatus = reqStatus?.toLowerCase();
+    let workingHours = calculateWorkingHours(clockIn, clockOut);
+
+    if (finalStatus === "present") {
+      if (rule) {
+        if (rule.halfLeave && clockIn >= rule.halfLeave) {
+          finalStatus = "half leave";
+        } else if (rule.lateTime && clockIn >= rule.lateTime) {
+          finalStatus = "late";
+        }
+      }
+    }
 
     await pool.query<ResultSetHeader>(
       `UPDATE attendance
-       SET userId = ?, date = ?, clockIn = ?, clockOut = ?,
-           attendanceStatus = ?, workingHours = ?
-       WHERE id = ?`,
+   SET date = ?, clockIn = ?, clockOut = ?,
+       attendanceStatus = ?, workingHours = ?
+   WHERE id = ?`,
       [
-        userId,
         formattedDate,
         clockIn || null,
         clockOut || null,

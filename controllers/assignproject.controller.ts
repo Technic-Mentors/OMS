@@ -122,13 +122,7 @@ export const addAssignProject = async (
     projectStart.setHours(0, 0, 0, 0);
     projectEnd.setHours(0, 0, 0, 0);
 
-    if (assignDateObj < projectStart || assignDateObj > projectEnd) {
-      res.status(400).json({
-        message: `Assignment date must be between project start date (${projectRows[0].startDate}) and end date (${projectRows[0].endDate})`,
-      });
-      return;
-    }
-
+    
     const query = `
       INSERT INTO assignedprojects (employee_id, projectId, date, assignStatus)
       VALUES (?, ?, ?, 'Y')
@@ -210,12 +204,7 @@ export const editAssignProject = async (
     projectStart.setHours(0, 0, 0, 0);
     projectEnd.setHours(0, 0, 0, 0);
 
-    if (assignDateObj < projectStart || assignDateObj > projectEnd) {
-      res.status(400).json({
-        message: `Assignment date must be between project start date (${projectRows[0].startDate}) and end date (${projectRows[0].endDate})`,
-      });
-      return;
-    }
+   
 
     const query = `
       UPDATE assignedprojects

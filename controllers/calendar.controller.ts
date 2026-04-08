@@ -96,12 +96,19 @@ export const activateCalendarSession = async (
   try {
     const { session_name, year, month } = req.body;
 
-    if (!session_name || !year || !month) {
-      res.status(400).json({ message: "All fields required" });
+    const currentMonth = new Date().toLocaleString("default", {
+      month: "long",
+    });
+
+    const currentYear = new Date().getFullYear();
+
+    if (month !== currentMonth || parseInt(year) !== currentYear) {
+      res.status(400).json({
+        message: `Only current month (${currentMonth} ${currentYear}) can be activated`,
+      });
       return;
     }
 
-    // Set all months to InActive except Processed
     await pool.query(
       "UPDATE calendarsession SET calendarStatus = 'InActive' WHERE LOWER(session_name) = LOWER(?) AND calendarStatus != 'Processed'",
       [session_name],
@@ -119,7 +126,7 @@ export const activateCalendarSession = async (
 
     // Return all rows for that session so frontend shows correct status
     const [updatedRows]: any = await pool.query(
-      "SELECT * FROM calendarsession WHERE LOWER(session_name) = LOWER(?) ORDER BY year, FIELD(month,'January','February','March','April','May','June','July','August','September','October','November','December')",
+      `SELECT * FROM calendarsession WHERE LOWER(session_name) = LOWER(?)`,
       [session_name],
     );
 
