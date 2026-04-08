@@ -16,7 +16,8 @@ export const getAllProjects = async (
         completionStatus,
         isOnGoing,
         DATE_FORMAT(startDate, '%Y-%m-%d') as startDate,
-        DATE_FORMAT(endDate, '%Y-%m-%d') as endDate
+        DATE_FORMAT(endDate, '%Y-%m-%d') as endDate,
+        DATE_FORMAT(deadlineDate, '%Y-%m-%d') as deadlineDate
       FROM projects
       WHERE projectStatus = 'Y'
       ORDER BY id DESC
@@ -115,35 +116,22 @@ export const updateProject = async (
       description,
       startDate,
       endDate,
+      deadlineDate,
       completionStatus,
     } = req.body;
+
+    const safeEndDate = endDate ? endDate : null;
 
     if (!projectName || !projectCategory || !startDate || !completionStatus) {
       res.status(400).json({ message: "Required fields are missing" });
       return;
     }
 
-    let safeEndDate = endDate ? endDate : null;
-
-    // 👉 enforce rule based on status
-    if (completionStatus === "New" || completionStatus === "Working") {
-      safeEndDate = null;
-    }
-
-    if (completionStatus === "Completed") {
-      if (!endDate) {
-        res
-          .status(400)
-          .json({ message: "End date is required for completed projects" });
-        return;
-      }
-
-      if (new Date(startDate) > new Date(endDate)) {
-        res.status(400).json({
-          message: "Start date cannot be greater than end date",
-        });
-        return;
-      }
+    if (endDate && new Date(startDate) > new Date(endDate)) {
+      res.status(400).json({
+        message: "Start date cannot be greater than end date",
+      });
+      return;
     }
 
     const trimmedName = projectName.trim();
@@ -168,10 +156,8 @@ export const updateProject = async (
       return;
     }
 
-    const isOnGoing = safeEndDate ? 0 : 1;
-
     await pool.query(
-      `
+  `
   UPDATE projects
   SET
     projectName = ?,
@@ -179,21 +165,23 @@ export const updateProject = async (
     description = ?,
     startDate = ?,
     endDate = ?,
+    deadlineDate = ?,   -- 👈 NEW
     completionStatus = ?,
     isOnGoing = ?
   WHERE id = ?
   `,
-      [
-        trimmedName,
-        trimmedCategory,
-        description,
-        startDate,
-        safeEndDate, // ✅ important
-        completionStatus,
-        isOnGoing,
-        id,
-      ],
-    );
+  [
+    trimmedName,
+    trimmedCategory,
+    description,
+    startDate,
+    safeEndDate,
+    deadlineDate || null,  // 👈 NEW
+    completionStatus,
+    endDate ? 0 : 1,
+    id,
+  ],
+);
 
     const [updatedRows]: any = await pool.query(
       `
@@ -204,6 +192,7 @@ export const updateProject = async (
         description,
         DATE_FORMAT(startDate, '%Y-%m-%d') as startDate,
         DATE_FORMAT(endDate, '%Y-%m-%d') as endDate,
+        DATE_FORMAT(deadlineDate, '%Y-%m-%d') as deadlineDate,
         completionStatus
       FROM projects
       WHERE id = ?
