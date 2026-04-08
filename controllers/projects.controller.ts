@@ -92,7 +92,7 @@ export const addProject = async (
         startDate,
         safeEndDate, // ✅ important
         completionStatus,
-        endDate ? 0 : 1 
+        endDate ? 0 : 1,
       ],
     );
 
@@ -118,13 +118,7 @@ export const updateProject = async (
       completionStatus,
     } = req.body;
 
-    if (
-      !projectName ||
-      !projectCategory ||
-      !startDate ||
-      !endDate ||
-      !completionStatus
-    ) {
+    if (!projectName || !projectCategory || !startDate || !completionStatus) {
       res.status(400).json({ message: "Required fields are missing" });
       return;
     }
@@ -158,26 +152,29 @@ export const updateProject = async (
       return;
     }
 
+    const isOnGoing = endDate ? 0 : 1;
+
     await pool.query(
       `
-      UPDATE projects
-      SET
-        projectName = ?,
-        projectCategory = ?,
-        description = ?,
-        startDate = ?,
-        endDate = ?,
-        completionStatus = ?,
-        isOnGoing = ?
-      WHERE id = ?
-      `,
+  UPDATE projects
+  SET
+    projectName = ?,
+    projectCategory = ?,
+    description = ?,
+    startDate = ?,
+    endDate = ?,
+    completionStatus = ?,
+    isOnGoing = ?
+  WHERE id = ?
+  `,
       [
         trimmedName,
         trimmedCategory,
         description,
         startDate,
-        endDate ? 0 : 1,
+        endDate,
         completionStatus,
+        isOnGoing,
         id,
       ],
     );
